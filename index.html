@@ -446,6 +446,9 @@ var ITEMS = {};
 
 function imgSrc(it) { return it.img || ITEM_IMAGES[it.id] || ''; }
 
+// Built-in item list (same as apps-script/Code.gs). Used until the server answers.
+var BUILTIN_CONFIG = {"outlets":["ANR01.BLR22","Biryani Section","BLD01.BLR25","BMS01.BLR26","BOM01.BLR04","BSK01.BLR19","BSN01.BLR40","BTM01.BLR03","CK-Corp Office","CRN01.BLR17","Dispatch Section","ECT01.BLR24","FZT01.BLR20","HNR01.BLR16","HSR01.BLR02","IND01.BLR01","KDG01.BLR14","KLN01.BLR09","KOR01.BLR12","KPR01.BLR41","MAR01.BLR05","MGP01.CHN01","NBR01.BLR21","PGD01.CHN06","Production Section","PRR01.CHN04","RTN01.BLR23","SDP01.BLR34","SJP01.BLR08","SKM01.CHN03","SKN01.BLR07","TCP01.BLR27","TKR01.BLR29","VDP01.CHN02","VNR01.BLR18","WFD01.BLR06","WFD02.BLR13","YLK01.BLR15"],"locations":["Central Store"],"groups":["Chiller / Freezer","Cooking Equipment","IT & Electrical","Steel Tables, Sinks & Racks"],"barcodeRequired":true,"statuses":["Active","Under Repair","Spare","Scrapped"],"reasons":["Sent for repair","Returned from repair","Replacement","Transfer","Scrapped","Correction"],"catalog":[{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"mode","label":"Used as","type":"chips","options":["Freezer","Chiller","Convertible"],"required":false},{"key":"lids","label":"Lids","type":"chips","options":["1","2","3"],"required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false},{"key":"temp","label":"Temperature now","type":"number","unit":"°C","required":false}],"brands":["Western","Celfrost","Blue Star","Voltas","Elanpro","Rockwell","Unknown"],"issues":["Not Cooling","Compressor","Gas Leak / Refilling","Thermostat / Controller","Door Gasket / Door","Fan Motor","Ice Build-up","Water Leakage","Wiring / Power Issue","Body / Rust Damage","Never Repaired","Unknown","Other"],"id":"DF","name":"Deep Freezer","icon":"🧊","group":"Chiller / Freezer","photos":[{"key":"photo1","label":"Front (doors closed)","required":true},{"key":"photo2","label":"Inside (doors open)","required":false},{"key":"photo3","label":"Back / compressor","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"mode","label":"Used as","type":"chips","options":["Chiller","Freezer","Chiller + Freezer"],"required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false},{"key":"temp","label":"Temperature now","type":"number","unit":"°C","required":false}],"brands":["Western","Celfrost","Blue Star","Voltas","Elanpro","Rockwell","Unknown"],"issues":["Not Cooling","Compressor","Gas Leak / Refilling","Thermostat / Controller","Door Gasket / Door","Fan Motor","Ice Build-up","Water Leakage","Wiring / Power Issue","Body / Rust Damage","Never Repaired","Unknown","Other"],"id":"CH2","name":"2 Door Chiller","icon":"❄️","group":"Chiller / Freezer","photos":[{"key":"photo1","label":"Front (doors closed)","required":true},{"key":"photo2","label":"Inside (doors open)","required":false},{"key":"photo3","label":"Back / compressor","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"mode","label":"Used as","type":"chips","options":["Chiller","Freezer","Chiller + Freezer"],"required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false},{"key":"temp","label":"Temperature now","type":"number","unit":"°C","required":false}],"brands":["Western","Celfrost","Blue Star","Voltas","Elanpro","Rockwell","Unknown"],"issues":["Not Cooling","Compressor","Gas Leak / Refilling","Thermostat / Controller","Door Gasket / Door","Fan Motor","Ice Build-up","Water Leakage","Wiring / Power Issue","Body / Rust Damage","Never Repaired","Unknown","Other"],"id":"CH4","name":"4 Door Chiller","icon":"❄️","group":"Chiller / Freezer","photos":[{"key":"photo1","label":"Front (doors closed)","required":true},{"key":"photo2","label":"Inside (doors open)","required":false},{"key":"photo3","label":"Back / compressor","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"doors","label":"Glass doors","type":"chips","options":["1","2","3"],"required":false},{"key":"branding","label":"Branding on cooler","type":"text","placeholder":"e.g. Coca-Cola, None","required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false},{"key":"temp","label":"Temperature now","type":"number","unit":"°C","required":false}],"brands":["Western","Celfrost","Blue Star","Voltas","Elanpro","Rockwell","Unknown","Coca-Cola","Pepsi"],"issues":["Not Cooling","Compressor","Gas Leak / Refilling","Thermostat / Controller","Door Gasket / Door","Fan Motor","Ice Build-up","Water Leakage","Wiring / Power Issue","Body / Rust Damage","Never Repaired","Unknown","Other"],"id":"VC","name":"Visi Cooler (Glass Door)","short":"Visi Cooler","icon":"🥤","group":"Chiller / Freezer","photos":[{"key":"photo1","label":"Front (doors closed)","required":true},{"key":"photo2","label":"Inside (doors open)","required":false},{"key":"photo3","label":"Back / compressor","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"type","label":"Type","type":"chips","options":["Solo","Grill","Convection"],"required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false}],"brands":["Samsung","LG","IFB","Panasonic","Godrej","Unknown"],"issues":["Magnetron","Diode","Capacitor","Transformer","Door / Door Switch","Control Panel / PCB","Display","Fuse","Motor / Turntable","Heating Issue","Sparking","Not Heating","Power Issue","Never Repaired","Unknown","Other"],"id":"MW","name":"Microwave Oven","short":"Microwave","icon":"♨️","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – door closed","required":true},{"key":"photo2","label":"Front – door open","required":false},{"key":"photo3","label":"Back side","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"grade","label":"Grade","type":"chips","options":["Domestic","Commercial"],"required":false},{"key":"plates","label":"Plates","type":"chips","options":["1","2","4"],"required":false},{"key":"watt","label":"Power","type":"number","unit":"Watts","required":false}],"brands":["Prestige","Pigeon","Philips","Bajaj","Havells","Unknown"],"issues":["Not Heating","Display / Touch Panel","Coil","PCB / Board","Fan","Glass Top Cracked","Error Code","Power Issue","Never Repaired","Unknown","Other"],"id":"IND","name":"Induction Stove","short":"Induction","icon":"🍳","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Side / back","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"fuel","label":"Fuel","type":"chips","options":["Electric","Gas"],"required":false},{"key":"tanks","label":"Tanks","type":"chips","options":["Single","Double"],"required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false}],"brands":["Local / Fabricated","Unknown"],"issues":["Not Heating","Heating Element","Thermostat","Wiring / Power Issue","Switch / Knob","Body Damage","Gas Valve / Burner","Oil Leakage","Never Repaired","Unknown","Other"],"id":"FRY","name":"Fryer","icon":"🍟","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Side / back","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"heating","label":"Heating","type":"chips","options":["Electric – Water","Electric – Dry","Gas"],"required":false},{"key":"compartments","label":"Compartments","type":"number","unit":"","required":false}],"brands":["Local / Fabricated","Unknown"],"issues":["Not Heating","Heating Element","Thermostat","Wiring / Power Issue","Switch / Knob","Body Damage","Water Leakage","Never Repaired","Unknown","Other"],"id":"BM","name":"Bain Marie","icon":"🍛","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Side / back","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"grade","label":"Grade","type":"chips","options":["Domestic","Commercial"],"required":false},{"key":"jars","label":"Jars","type":"number","unit":"","required":false},{"key":"watt","label":"Power","type":"number","unit":"Watts","required":false}],"brands":["Preethi","Sujata","Bajaj","Butterfly","Philips","Unknown"],"issues":["Motor","Jar / Blade","Coupler","Switch / Knob","Overheating","Power Issue","Never Repaired","Unknown","Other"],"id":"MG","name":"Mixer Grinder","icon":"🌀","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Side / back","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"fuel","label":"Type","type":"chips","options":["Electric","Gas"],"required":false},{"key":"capacity","label":"Capacity","type":"number","unit":"Litres","required":false}],"brands":["Prestige","Panasonic","Butterfly","Local / Fabricated","Unknown"],"issues":["Not Heating","Heating Element","Thermostat","Wiring / Power Issue","Switch / Knob","Body Damage","Lid / Gasket","Inner Pot Damage","Never Repaired","Unknown","Other"],"id":"RC","name":"Rice Cooker","icon":"🍚","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Side / back","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"burners","label":"Burners","type":"chips","options":["1","2","3","4"],"required":false},{"key":"pressure","label":"Pressure","type":"chips","options":["High","Low"],"required":false},{"key":"gas","label":"Gas","type":"chips","options":["LPG","PNG"],"required":false}],"brands":["Local / Fabricated","Unknown"],"issues":["Low / Uneven Flame","Gas Leak","Knob / Valve","Burner Head Blocked","Hose / Regulator","Frame Damage","Never Repaired","Unknown","Other"],"id":"BRN","name":"Burner","icon":"🔥","group":"Cooking Equipment","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Side / back","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"conn","label":"Connection","type":"chips","options":["USB","LAN","Bluetooth","Wi-Fi"],"required":false},{"key":"paper","label":"Paper","type":"chips","options":["58 mm","80 mm"],"required":false},{"key":"usedFor","label":"Used for","type":"text","placeholder":"e.g. Swiggy, Zomato, POS","required":false}],"brands":["Epson","TVS","Posiflex","Everycom","Rugtek","Unknown"],"issues":["Not Printing","Paper Jam","Cutter","Print Head","Connectivity (LAN / USB / BT)","Adapter / Power","Never Repaired","Unknown","Other"],"id":"PRN","name":"KOT Printer","icon":"🧾","group":"IT & Electrical","photos":[{"key":"photo1","label":"Front – full view","required":true}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"recorder","label":"Recorder","type":"chips","options":["DVR","NVR","Standalone"],"required":false},{"key":"cameras","label":"Total cameras","type":"number","unit":"","required":true},{"key":"camerasWorking","label":"Cameras working","type":"number","unit":"","required":false},{"key":"days","label":"Backup","type":"number","unit":"Days","required":false}],"brands":["CP Plus","Hikvision","Dahua","Godrej","Unknown"],"issues":["Camera Not Working","DVR / NVR Issue","Hard Disk","Cable / Connector","Power Adapter","No Remote View","Never Repaired","Unknown","Other"],"id":"CCTV","name":"CCTV System","short":"CCTV","icon":"📹","group":"IT & Electrical","note":"Count 1 per recorder box (DVR/NVR) — not per camera.","photos":[{"key":"photo1","label":"DVR / NVR box","required":true},{"key":"photo2","label":"Monitor screen","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"kva","label":"Capacity","type":"number","unit":"kVA / VA","required":false},{"key":"batteries","label":"Batteries","type":"number","unit":"","required":false},{"key":"backup","label":"Backup","type":"number","unit":"Minutes","required":false},{"key":"supplies","label":"Gives power to","type":"multi","options":["Billing / POS","Computer","CCTV","Router / Internet","Lights","Kitchen Equipment"],"required":false}],"brands":["Microtek","Luminous","APC","V-Guard","Su-Kam","Unknown"],"issues":["Battery Weak / Dead","No Backup","Overload / Tripping","Continuous Beeping","PCB / Board","Not Turning On","Never Repaired","Unknown","Other"],"id":"UPS","name":"UPS","icon":"🔋","group":"IT & Electrical","photos":[{"key":"photo1","label":"Front – full view","required":true},{"key":"photo2","label":"Batteries","required":false}]},{"kind":"equipment","nameplate":true,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"type","label":"Type","type":"chips","options":["Desktop","Laptop","All-in-One"],"required":false},{"key":"usedFor","label":"Used for","type":"multi","options":["Billing / POS","Aggregator Orders","CCTV Viewing","Office Work"],"required":false}],"brands":["Dell","HP","Lenovo","Acer","Asus","Apple","Unknown"],"issues":["Slow","Not Booting","Screen / Display","Keyboard / Mouse","Battery (Laptop)","Charger / Adapter","Network / Wi-Fi","Software / OS","Never Repaired","Unknown","Other"],"id":"PC","name":"Computer / Laptop","icon":"💻","group":"IT & Electrical","photos":[{"key":"photo1","label":"Front – full view","required":true}]},{"kind":"equipment","nameplate":false,"repairs":true,"conditions":["Working","Partially Working","Not Working","Not in Use","Damaged","Missing","Other"],"specs":[{"key":"number","label":"Phone number","type":"text","placeholder":"e.g. 080 1234 5678","required":false},{"key":"provider","label":"Provider","type":"text","placeholder":"e.g. BSNL, Airtel","required":false}],"brands":["Beetel","Panasonic","Unknown"],"issues":["Dead Line","No Dial Tone","Handset / Cord","Noise in Line","Adapter","Never Repaired","Unknown","Other"],"id":"LL","name":"Landline Phone","short":"Landline","icon":"☎️","group":"IT & Electrical","photos":[{"key":"photo1","label":"Phone photo","required":true}]},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"underShelf","label":"Under shelf","type":"chips","options":["Yes","No"],"required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"WT4","name":"SS Working Table 4x2","short":"Working Table 4x2","icon":"🛠️","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"WT","match":"4x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"underShelf","label":"Under shelf","type":"chips","options":["Yes","No"],"required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"WT5","name":"SS Working Table 5x2","short":"Working Table 5x2","icon":"🛠️","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"WT","match":"5x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"underShelf","label":"Under shelf","type":"chips","options":["Yes","No"],"required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"WT6","name":"SS Working Table 6x2","short":"Working Table 6x2","icon":"🛠️","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"WT","match":"6x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"shelves","label":"Shelves","type":"number","unit":"","required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"PWR","name":"SS Pot Wash Rack","short":"Pot Wash Rack","icon":"🧽","group":"Steel Tables, Sinks & Racks"},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"shelves","label":"Shelves","type":"number","unit":"","required":false},{"key":"dims","label":"Size (approx.)","type":"text","placeholder":"e.g. 4ft x 1.5ft x 6ft","required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"MSR","name":"MS Rack","icon":"🗄️","group":"Steel Tables, Sinks & Racks"},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"bowls","label":"Bowls","type":"chips","options":["1","2","3"],"required":false},{"key":"drain","label":"Drain board","type":"chips","options":["Yes","No"],"required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"SNK2","name":"SS Sink 2x2","short":"Sink 2x2","icon":"🚰","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"SNK","match":"2x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[{"key":"bowls","label":"Bowls","type":"chips","options":["1","2","3"],"required":false},{"key":"drain","label":"Drain board","type":"chips","options":["Yes","No"],"required":false}],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"SNK6","name":"SS Sink 6x2","short":"Sink 6x2","icon":"🚰","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"SNK","match":"6x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"PUC6","name":"Pick-up Counter Table 6x2","short":"Pick-up Counter 6x2","icon":"🛎️","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"PUC","match":"6x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"PUC5","name":"Pick-up Counter Table 5x2","short":"Pick-up Counter 5x2","icon":"🛎️","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"PUC","match":"5x2"}},{"kind":"furniture","nameplate":false,"repairs":false,"conditions":["Good","Minor Rust","Heavy Rust","Damaged / Dented","Loose / Wobbly","Leaking","Not in Use","Other"],"specs":[],"brands":[],"issues":[],"photos":[{"key":"photo1","label":"Full view","required":true},{"key":"photo2","label":"Damage / rust","required":false}],"id":"PUC4","name":"Pick-up Counter Table 4x2","short":"Pick-up Counter 4x2","icon":"🛎️","group":"Steel Tables, Sinks & Racks","legacy":{"prefix":"PUC","match":"4x2"}}]};
+
 function setConfig(c) {
   CONFIG = c;
   ITEMS = {};
@@ -506,6 +509,7 @@ var store = {
 };
 
 function callServer(action, data) {
+  if (!APP.API_URL) return LocalAPI.call(action, data);
   return fetch(APP.API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // no CORS pre-flight
@@ -518,6 +522,150 @@ function callServer(action, data) {
 
 /* units already accounted for = here now + away for repair */
 function have(code) { return n(S.registered[code]) + n(S.away[code]); }
+
+
+/* =========================================
+   PHONE-ONLY MODE
+   When API_URL is empty the app still works fully: counts and
+   registrations are kept on this phone (IndexedDB) in an "outbox".
+   As soon as API_URL is set, the outbox is sent to the Google Sheet
+   automatically (each unit has a unique id, so nothing is sent twice).
+========================================= */
+
+var LDB = (function () {
+  var p = null, mem = {};
+  function open() {
+    if (p) return p;
+    p = new Promise(function (res) {
+      try {
+        var r = indexedDB.open('kap_local', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+    return p;
+  }
+  function req(mode, fn) {
+    return open().then(function (db) {
+      if (!db) return undefined;
+      return new Promise(function (res) {
+        try {
+          var q = fn(db.transaction('kv', mode).objectStore('kv'));
+          q.onsuccess = function () { res(q.result); };
+          q.onerror = function () { res(undefined); };
+        } catch (e) { res(undefined); }
+      });
+    });
+  }
+  return {
+    get: function (k) { return req('readonly', function (st) { return st.get(k); }).then(function (v) { return v === undefined ? mem[k] : v; }); },
+    put: function (k, v) { mem[k] = v; return req('readwrite', function (st) { return st.put(v, k); }); },
+    del: function (k) { delete mem[k]; return req('readwrite', function (st) { return st.delete(k); }); },
+    keys: function (prefix) {
+      return open().then(function (db) {
+        if (!db) return Object.keys(mem).filter(function (k) { return k.indexOf(prefix) === 0; }).sort();
+        return new Promise(function (res) {
+          try {
+            var q = db.transaction('kv', 'readonly').objectStore('kv').getAllKeys();
+            q.onsuccess = function () { res(q.result.filter(function (k) { return String(k).indexOf(prefix) === 0; }).sort()); };
+            q.onerror = function () { res([]); };
+          } catch (e) { res([]); }
+        });
+      });
+    }
+  };
+})();
+
+function localMeta() {
+  return LDB.get('meta').then(function (m) { return m || { counts: {}, assets: [] }; });
+}
+
+function outboxKey() { return 'ob:' + Date.now() + ':' + uid(); }
+
+var LocalAPI = {
+
+  call: function (action, data) {
+    if (!this[action]) return Promise.resolve({ success: false, message: 'Not available offline' });
+    return this[action](data);
+  },
+
+  getOutletStatus: function (outlet) {
+    return localMeta().then(function (m) {
+      var reg = {};
+      m.assets.forEach(function (a) { if (a.outlet === outlet) reg[a.itemId] = (reg[a.itemId] || 0) + 1; });
+      return { success: true, counts: m.counts[outlet] || {}, registered: reg, away: {}, lastUpdate: null };
+    });
+  },
+
+  saveCounts: function (d) {
+    return localMeta().then(function (m) {
+      m.counts[d.outlet] = Object.assign(m.counts[d.outlet] || {}, d.counts);
+      return LDB.put('meta', m);
+    }).then(function () {
+      return LDB.put(outboxKey(), { type: 'saveCounts', data: d });
+    }).then(function () { return { success: true, local: true }; });
+  },
+
+  checkBarcodes: function (list) {
+    return localMeta().then(function (m) {
+      var dup = [];
+      m.assets.forEach(function (a) {
+        if (a.barcode && list.indexOf(a.barcode) > -1) dup.push({ barcode: a.barcode, assetId: a.localId, outlet: a.outlet });
+      });
+      return { success: true, duplicates: dup };
+    });
+  },
+
+  saveAsset: function (a) {
+    return localMeta().then(function (m) {
+      var same = m.assets.filter(function (x) { return x.uid === a.uid; })[0];
+      if (same) return { success: true, id: same.localId, local: true };
+      var bc = String(a.barcode || '').trim().toUpperCase();
+      if (bc && m.assets.some(function (x) { return x.barcode === bc; })) {
+        return { success: false, message: 'Barcode ' + bc + ' is already used on this phone.' };
+      }
+      var num = m.assets.filter(function (x) { return x.itemId === a.itemId; }).length + 1;
+      var localId = a.itemId + '-P' + String(num).padStart(3, '0');
+      m.assets.push({ uid: a.uid, outlet: a.outlet, itemId: a.itemId, barcode: bc, localId: localId, at: Date.now() });
+      return LDB.put(outboxKey(), { type: 'saveAsset', data: a })
+        .then(function () { return LDB.put('meta', m); })
+        .then(function () { return { success: true, id: localId, local: true }; });
+    });
+  }
+
+};
+
+/* send the phone's outbox to the sheet (runs when API_URL is set) */
+var syncing = false;
+function syncOutbox() {
+  if (syncing || !APP.API_URL) return Promise.resolve();
+  syncing = true;
+  var sent = 0, failed = 0;
+  return LDB.keys('ob:').then(function (keys) {
+    return keys.reduce(function (chain, k) {
+      return chain.then(function () {
+        return LDB.get(k).then(function (item) {
+          if (!item) return;
+          return callServer(item.type, item.data).then(function (r) {
+            if (r && r.success) { sent++; return LDB.del(k); }
+            failed++;
+            item.error = (r && r.message) || 'error';
+            return LDB.put(k, item);
+          }).catch(function () { failed++; });
+        });
+      });
+    }, Promise.resolve());
+  }).then(function () {
+    syncing = false;
+    if (sent && !failed) LDB.put('meta', { counts: {}, assets: [] });
+    if (sent) {
+      toast('✓ ' + sent + ' saved entr' + (sent > 1 ? 'ies' : 'y') + ' sent to the sheet');
+      if (S.outlet) loadOutlet();
+    }
+    if (failed) setTimeout(function () { toast(failed + ' saved entr' + (failed > 1 ? 'ies' : 'y') + ' not sent yet – will retry'); }, 2800);
+  });
+}
 
 function imgHtml(it) {
   return '<img src="' + esc(imgSrc(it)) + '" alt="" loading="lazy" onerror="this.parentNode.innerHTML=\'' +
@@ -643,36 +791,29 @@ function draftHasData(d) {
 
 window.onload = function () {
 
-  if (!APP.API_URL) {
-    showFatal('Setup needed', 'Open <b>index.html</b> on GitHub (✏️ Edit) and paste the Apps Script web-app URL into <b>API_URL</b> near the top. See README.md.');
-    return;
-  }
+  // Start immediately with the built-in item list (or the last one from the server).
+  var cfg = BUILTIN_CONFIG;
+  var cached = APP.API_URL ? store.get('kap_config_v1') : '';
+  if (cached) { try { cfg = JSON.parse(cached); } catch (e) { /* ignore */ } }
+  setConfig(cfg);
+  start();
 
-  var cached = store.get('kap_config_v1');
-  var started = false;
+  if (!APP.API_URL) return;            // phone-only mode until the sheet is connected
 
-  if (cached) {
-    try { setConfig(JSON.parse(cached)); start(); started = true; } catch (e) { /* ignore bad cache */ }
-  }
-
+  // refresh the item list from the server in the background
   fetch(APP.API_URL + '?action=config').then(function (r) { return r.json(); }).then(function (c) {
-    if (!c || !c.success) throw new Error((c && c.message) || 'No config');
+    if (!c || !c.success) return;
     var fresh = JSON.stringify(c);
-    store.set('kap_config_v1', fresh);
-    if (!started) { setConfig(c); start(); started = true; }
-    else if (fresh !== cached) { setConfig(c); renderJump(); renderAll(); }
-  }).catch(function (e) {
-    if (!started) showFatal('Cannot reach the server', 'Check your internet and try again.<br><span class="hint">' + esc(e.message || e) + '</span>');
-  });
+    if (fresh !== store.get('kap_config_v1')) {
+      store.set('kap_config_v1', fresh);
+      setConfig(c); renderJump(); renderAll();
+    }
+  }).catch(function () { /* keep using the built-in list */ });
+
+  // send anything that was saved on this phone before the sheet was connected
+  syncOutbox();
 
 };
-
-function showFatal(title, html) {
-  document.querySelector('.wrap').innerHTML =
-    '<div class="empty"><b style="font-size:16px;color:#111827">' + esc(title) + '</b><br><br>' + html +
-    '<br><br><button class="btn sm" onclick="location.reload()">Retry</button></div>';
-  document.querySelector('.bottom').style.display = 'none';
-}
 
 function start() {
 
@@ -740,6 +881,7 @@ function loadOutlet() {
   S.counts = local ? JSON.parse(local) : {};
 
   $('topSub').textContent = S.outlet ? 'Outlet ' + S.outlet : 'Select outlet to start';
+  if (!APP.API_URL && S.outlet) $('topSub').textContent = S.outlet + ' · saved on this phone';
 
   if (!S.outlet) { renderAll(); return; }
 
@@ -1890,6 +2032,7 @@ async function submitGroup() {
       : [{ t: 'Done', v: '' }];
 
     var go = await ask('✅ ' + nameOf(it) + ' – ' + ids.length + ' registered',
+      (APP.API_URL ? '' : '<p class="hint">Saved on this phone. It goes to the Google Sheet automatically once connected; final Asset IDs are given then.</p>') +
       '<p>Asset IDs:</p><div class="ids">' + ids.map(function (x) { return '<span class="aid">' + esc(x) + '</span>'; }).join('') + '</div>',
       buttons);
 
