@@ -308,6 +308,68 @@
 
     .hide { display: none !important; }
 
+    /* ---------- guidance ---------- */
+
+    .help-btn {
+      flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid #6b7280;
+      background: none; color: #fff; font-weight: bold; font-size: 15px; cursor: pointer; margin-left: 8px;
+    }
+    .top-right { display: flex; align-items: center; min-width: 0; }
+
+    .tip {
+      position: relative; background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe;
+      border-radius: 12px; padding: 11px 36px 11px 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.45;
+    }
+    .tip b { color: #1e3a8a; }
+    .tip ol { margin: 4px 0 0; padding-left: 18px; }
+    .tip li { margin: 2px 0; }
+    .tip-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border: none; background: none; color: #1e40af; font-size: 18px; cursor: pointer; }
+
+    .ucheck { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; max-width: 760px; margin: 0 auto; width: 100%; scrollbar-width: none; }
+    .ucheck::-webkit-scrollbar { display: none; }
+    .ck { flex: none; font-size: 12px; padding: 5px 10px; border-radius: 999px; background: #fff; border: 1px dashed #9ca3af; color: var(--muted); cursor: pointer; }
+    .ck.ok { border: 1px solid var(--ok); background: var(--okbg); color: var(--ok); }
+
+    .ctitle { font-size: 12px; font-weight: bold; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
+    .ref { display: flex; gap: 10px; align-items: center; background: var(--soft); border-radius: 10px; padding: 8px; margin-bottom: 8px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .ref img { width: 56px; height: 42px; object-fit: contain; background: #fff; border-radius: 6px; flex: none; }
+    .warn-inline { background: var(--warnbg); color: var(--warn); font-size: 12.5px; border-radius: 8px; padding: 8px 10px; margin-top: 8px; line-height: 1.4; }
+
+    .rv { max-height: 46vh; overflow-y: auto; margin: 0 0 12px; border: 1px solid var(--line); border-radius: 10px; }
+    .rv-row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 13.5px; }
+    .rv-row:first-child { border-top: none; }
+    .rv-row b { font-size: 15px; }
+    .rv-row.big { background: var(--warnbg); }
+    .rv-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 12px 2px; background: var(--soft); }
+
+    .gslide h4 { margin: 0 0 6px; font-size: 18px; }
+    .gslide .big-ic { font-size: 40px; margin-bottom: 6px; }
+    .gslide p, .gslide li { font-size: 14px; line-height: 1.5; color: var(--text); }
+    .gslide ul, .gslide ol { padding-left: 20px; margin: 6px 0 12px; }
+    .gdots { display: flex; justify-content: center; gap: 6px; margin: 4px 0 14px; }
+    .gdots i { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; }
+    .gdots i.on { background: var(--ink); width: 18px; border-radius: 99px; }
+    .gbtns { display: flex; gap: 8px; }
+    .gbtns .btn { flex: 1; }
+
+    .row.next { box-shadow: inset 4px 0 0 var(--ink); }
+    .zero-box { background: var(--warnbg); border: 1px solid #fcd34d; border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+    .zero-h { font-size: 13px; color: #78350f; line-height: 1.4; margin-bottom: 8px; }
+    .zero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 26vh; overflow-y: auto; }
+    .zero-item { display: flex; flex-direction: column; gap: 5px; background: #fff; border-radius: 9px; padding: 6px; font-size: 12px; line-height: 1.2; border: 1px solid #fde68a; }
+    .zero-item.usual { border: 1.5px solid #f59e0b; }
+    .zero-item.added { border: 1.5px solid var(--ok); background: var(--okbg); }
+    .zi-top { display: flex; align-items: center; gap: 6px; min-height: 30px; }
+    .zi-top span { flex: 1; min-width: 0; }
+    .zero-item em { display: block; font-style: normal; font-size: 10.5px; color: #b45309; margin-top: 2px; }
+    .zi-img { width: 34px; height: 28px; flex: none; display: flex; align-items: center; justify-content: center; }
+    .zi-img img { width: 100%; height: 100%; object-fit: contain; }
+    .zi-img .emo { font-size: 18px; }
+    .zi-step { background: #fff; }
+    .zi-step button { width: 34px; height: 32px; }
+    .zi-step input { height: 32px; font-size: 16px; }
+    .nexttag { display: inline-block; background: var(--ink); color: #fff; font-size: 10.5px; border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
+
   </style>
 
 </head>
@@ -322,7 +384,10 @@
 <div class="top">
   <div class="top-row">
     <h1>Kitchen Asset Register</h1>
-    <div class="sub" id="topSub">Select outlet to start</div>
+    <div class="top-right">
+      <div class="sub" id="topSub">Select outlet to start</div>
+      <button type="button" class="help-btn" onclick="showGuide(0)" aria-label="How to use">?</button>
+    </div>
   </div>
   <div class="tabs">
     <button type="button" class="tab on" id="tabCount" onclick="showTab('count')">① Count <span class="pill" id="pillCount">0</span></button>
@@ -348,6 +413,7 @@
   <!-- STEP 1: COUNT -->
 
   <div id="countView">
+    <div id="countTip"></div>
     <div class="jump" id="jump"></div>
     <div id="countGroups"></div>
   </div>
@@ -396,6 +462,7 @@
   </div>
 
   <div class="units" id="units"></div>
+  <div class="ucheck" id="ucheck"></div>
 
   <div class="sh-body" id="shBody"><div class="wrap" id="unitForm"></div></div>
 
@@ -838,7 +905,13 @@ function start() {
   S.name = $('name').value.trim();
   S.mobile = $('mobile').value.trim();
 
+  var lastOutlet = sel.value;
   sel.onchange = function () {
+    if (lastOutlet && countDirty() && !confirm('Your count for ' + lastOutlet + ' is not saved yet. It stays on this phone. Switch to ' + (sel.value || 'no outlet') + '?')) {
+      sel.value = lastOutlet;
+      return;
+    }
+    lastOutlet = sel.value;
     store.set('kap_outlet', sel.value);
     $('wOutlet').classList.remove('err');
     loadOutlet();
@@ -858,8 +931,11 @@ function start() {
   $('scanInput').onchange = onScanFile;
 
   renderJump();
+  renderCountTip();
   renderCount();
   loadOutlet();
+
+  if (!store.get('kap_guide_seen')) setTimeout(function () { showGuide(0); }, 400);
 
   window.addEventListener('beforeunload', function (e) {
     if (countDirty()) { e.preventDefault(); e.returnValue = ''; }
@@ -1038,6 +1114,216 @@ function renderBottom() {
 
 
 /* =========================================
+   GUIDANCE — first-time guide, tips, checks
+========================================= */
+
+var GUIDE = [
+  { ic: '👋', t: 'Welcome',
+    h: '<p>This app records <b>every piece of equipment</b> in your outlet: chillers, cooking equipment, IT items and steel tables, sinks and racks.</p>' +
+       '<p>It has <b>2 steps</b>:</p><ol><li><b>① Count</b> how many of each item you have</li><li><b>② Register</b> each one with a barcode sticker and photo</li></ol>' +
+       '<p><b>Before you start:</b> keep the barcode stickers with you, charge your phone and work in good light.</p>' },
+  { ic: '①', t: 'Count',
+    h: '<ul><li>Walk around the <b>whole outlet</b>, including the store room and pick-up area.</li>' +
+       '<li>Count <b>everything</b>: working, broken or not in use.</li>' +
+       '<li>Tap <b>+</b> on the item card. For many items, tap the number and type it.</li>' +
+       '<li>Tables, sinks and counters have a card for each size (4x2, 5x2, 6x2). Pick the right size.</li>' +
+       '<li>CCTV: count <b>1 per recorder box</b>, not per camera.</li></ul>' +
+       '<p>Then tap <b>Save Count</b> at the bottom and check the list.</p>' },
+  { ic: '②', t: 'Register',
+    h: '<p>The app takes you <b>item by item</b>. For each unit:</p>' +
+       '<ol><li><b>Stick</b> a barcode sticker on the item, then <b>📷 Scan</b> it</li>' +
+       '<li>Take the <b>photo</b>: stand back so the full item is visible</li>' +
+       '<li>Tap the <b>brand</b> and <b>condition</b></li></ol>' +
+       '<p>Fill <b>all units</b> of the item (e.g. both chillers), then tap <b>Submit all</b>. Unit 2 copies the brand from Unit 1.</p>' },
+  { ic: '⏸', t: 'Pause anytime',
+    h: '<ul><li>Busy? Tap <b>⏸ Pause</b>. Everything stays on this phone.</li>' +
+       '<li>Open the app later on the <b>same phone</b> and tap <b>Continue</b>.</li>' +
+       '<li>Finish the paused item before starting a new one.</li>' +
+       '<li><b>Do not clear browser data</b> before your work is submitted.</li></ul>' },
+  { ic: '✅', t: 'Avoid mistakes',
+    h: '<ul><li><b>One sticker per item.</b> Never reuse or move a sticker.</li>' +
+       '<li>Stick it where it <b>won\'t get wet or hot</b> (side panel, not near burners).</li>' +
+       '<li>Photo must be <b>clear</b>. If blurry, tap it to retake.</li>' +
+       '<li>Coolers from <b>Coca-Cola / Pepsi</b> also count. Register them too.</li>' +
+       '<li>Item <b>not working</b>? Register it as Not Working, and raise a FixFlow ticket.</li>' +
+       '<li>Wrong count? Go to <b>① Count</b>, fix it, and Save again.</li></ul>' +
+       '<p>Tap <b>?</b> at the top anytime to see this guide again.</p>' }
+];
+
+function showGuide(i) {
+  i = i || 0;
+  var g = GUIDE[i];
+  var d = $('dlg');
+  d.innerHTML =
+    '<div class="gslide"><div class="big-ic">' + g.ic + '</div><h4>' + esc(g.t) + '</h4>' + g.h + '</div>' +
+    '<div class="gdots">' + GUIDE.map(function (_, k) { return '<i class="' + (k === i ? 'on' : '') + '"></i>'; }).join('') + '</div>';
+  var row = el('div', 'gbtns');
+  if (i > 0) {
+    var back = el('button', 'btn sec', '← Back'); back.type = 'button';
+    back.onclick = function () { showGuide(i - 1); };
+    row.appendChild(back);
+  } else {
+    var skip = el('button', 'btn sec', 'Skip'); skip.type = 'button';
+    skip.onclick = closeGuide;
+    row.appendChild(skip);
+  }
+  var nx = el('button', 'btn', i < GUIDE.length - 1 ? 'Next →' : 'Start ✓'); nx.type = 'button';
+  nx.onclick = function () { if (i < GUIDE.length - 1) showGuide(i + 1); else closeGuide(); };
+  row.appendChild(nx);
+  d.appendChild(row);
+  $('modal').classList.add('open');
+}
+
+function closeGuide() {
+  $('modal').classList.remove('open');
+  store.set('kap_guide_seen', '1');
+}
+
+/* small dismissible tip card (hidden for good once closed) */
+function tipEl(id, html) {
+  if (store.get('kap_tip_' + id)) return null;
+  var t = el('div', 'tip', html);
+  var x = el('button', 'tip-x', '×'); x.type = 'button';
+  x.setAttribute('aria-label', 'Hide tip');
+  x.onclick = function () { store.set('kap_tip_' + id, '1'); t.remove(); };
+  t.appendChild(x);
+  return t;
+}
+
+function renderCountTip() {
+  var box = $('countTip');
+  box.innerHTML = '';
+  var t = tipEl('count',
+    '<b>Step ① Count.</b> Walk around the whole outlet and tap <b>+</b> for every item you see, working or not. ' +
+    'Then tap <b>Save Count</b> at the bottom.');
+  if (t) box.appendChild(t);
+}
+
+/* items almost every outlet has: warn if counted as 0 */
+var USUAL_ITEMS = ['PRN', 'CCTV', 'UPS', 'BRN'];
+
+function reviewCount() {
+
+  return new Promise(function (resolve) {
+
+    var d = $('dlg');
+    // items at 0 when the review opened — they stay in place while staff edit them
+    var zeros = CONFIG.catalog.filter(function (it) { return !n(S.counts[it.id]); });
+
+    function counted() {
+      var rows = '', big = false;
+      CONFIG.groups.forEach(function (g) {
+        var items = CONFIG.catalog.filter(function (i) { return i.group === g && n(S.counts[i.id]); });
+        if (!items.length) return;
+        rows += '<div class="rv-h">' + esc(g) + '</div>';
+        items.forEach(function (it) {
+          var v = n(S.counts[it.id]);
+          var isBig = v >= 10;
+          if (isBig) big = true;
+          rows += '<div class="rv-row' + (isBig ? ' big' : '') + '"><span>' + esc(nameOf(it)) +
+            (isBig ? ' <span class="hint">– please re-check</span>' : '') + '</span><b>' + v + '</b></div>';
+        });
+      });
+      return (rows ? '<div class="rv" style="max-height:24vh">' + rows + '</div>' : '') +
+        (big ? '<div class="warn-inline" style="margin:-4px 0 10px">⚠ Some counts are high. Please re-check the highlighted items.</div>' : '');
+    }
+
+    function stillZero() { return zeros.filter(function (it) { return !n(S.counts[it.id]); }).length; }
+
+    function refresh() {
+      $('rvTop').innerHTML = counted();
+      var left = stillZero();
+      $('zeroH').innerHTML = left
+        ? '⚠ Counted as 0 (' + left + '). <b>Are you sure you don\'t have these items?</b><br><span class="hint">Found one? Enter the number here.</span>'
+        : '✓ All items have a count now.';
+      yes.textContent = left ? 'Yes, we don\'t have these – Save' : 'Yes, correct – Save';
+      store.set('kap_counts_' + S.outlet, JSON.stringify(S.counts));
+    }
+
+    d.innerHTML = '<h4>Save count – ' + esc(S.outlet) + '</h4>' +
+      '<p style="margin:0 0 8px;font-size:14px">Check the list before saving.</p><div id="rvTop"></div>';
+
+    if (zeros.length) {
+      var z = el('div', 'zero-box');
+      z.appendChild(el('div', 'zero-h')).id = 'zeroH';
+      var grid = el('div', 'zero-grid');
+      zeros.forEach(function (it) {
+        var usual = USUAL_ITEMS.indexOf(it.id) > -1;
+        var c = el('div', 'zero-item' + (usual ? ' usual' : ''),
+          '<div class="zi-top"><div class="zi-img">' + imgHtml(it) + '</div><span>' + esc(nameOf(it)) +
+          (usual ? '<em>Most outlets have this</em>' : '') + '</span></div>');
+        var st = el('div', 'step zi-step');
+        var minus = el('button', '', '−'); minus.type = 'button';
+        var input = document.createElement('input');
+        input.type = 'number'; input.inputMode = 'numeric'; input.min = '0'; input.value = String(n(S.counts[it.id]));
+        var plus = el('button', '', '+'); plus.type = 'button';
+        function set(x) {
+          x = Math.max(0, Math.min(999, x || 0));
+          S.counts[it.id] = x;
+          input.value = String(x);
+          c.classList.toggle('added', x > 0);
+          refresh();
+        }
+        minus.onclick = function () { set(n(input.value) - 1); };
+        plus.onclick = function () { set(n(input.value) + 1); };
+        input.onfocus = function () { input.select(); };
+        input.oninput = function () { set(n(input.value)); };
+        st.appendChild(minus); st.appendChild(input); st.appendChild(plus);
+        c.appendChild(st);
+        grid.appendChild(c);
+      });
+      z.appendChild(grid);
+      d.appendChild(z);
+    }
+
+    var box = el('div', 'btns');
+    var yes = el('button', 'btn', '');
+    yes.type = 'button';
+    yes.onclick = function () { $('modal').classList.remove('open'); renderCount(); renderBottom(); resolve('save'); };
+    var back = el('button', 'btn sec', '← Go back and check');
+    back.type = 'button';
+    back.onclick = function () { $('modal').classList.remove('open'); renderCount(); renderBottom(); resolve(''); };
+    box.appendChild(yes); box.appendChild(back);
+    d.appendChild(box);
+
+    if (!zeros.length) d.appendChild(el('div', 'hide')).id = 'zeroH';
+    refresh();
+    $('modal').classList.add('open');
+
+  });
+
+}
+
+/* checklist shown at the top of the registration form */
+function renderChecklist() {
+  var box = $('ucheck');
+  box.innerHTML = '';
+  if (!G) return;
+  var it = ITEMS[G.itemId];
+  var u = G.units[G.cur];
+  if (u.savedId) return;
+  var m = missing(u, it);
+  var steps = [
+    { k: 'barcode', t: '① Barcode', ok: m.indexOf('barcode') < 0 },
+    { k: 'photo:photo1', t: '② Photo', ok: m.filter(function (x) { return x.indexOf('photo:') === 0; }).length === 0 }
+  ];
+  if (it.kind === 'equipment') steps.push({ k: 'brand', t: '③ Brand', ok: m.indexOf('brand') < 0 });
+  var reqSpecs = m.filter(function (x) { return x.indexOf('spec:') === 0; });
+  if (it.specs.some(function (sp) { return sp.required; })) steps.push({ k: reqSpecs[0] || 'details', t: 'Details', ok: !reqSpecs.length });
+  steps.push({ k: 'condition', t: (it.kind === 'equipment' ? '④' : '③') + ' Condition', ok: m.indexOf('condition') < 0 });
+  steps.forEach(function (st) {
+    var c = el('button', 'ck' + (st.ok ? ' ok' : ''), (st.ok ? '✓ ' : '') + esc(st.t));
+    c.type = 'button';
+    c.onclick = function () {
+      var f = document.querySelector('#unitForm [data-k="' + st.k + '"]');
+      if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    box.appendChild(c);
+  });
+}
+
+
+/* =========================================
    STEP 1 — COUNT
 ========================================= */
 
@@ -1145,13 +1431,16 @@ async function saveCount() {
 
   if (!checkWho()) return;
 
+  var t = totals();
+  if (!t.counted) { toast('Tap + on the items you have'); return; }
+
+  if ((await reviewCount()) !== 'save') return;
+
+  // after the review (staff may have added missed items there)
   var changed = {};
   CONFIG.catalog.forEach(function (it) {
     if (n(S.counts[it.id]) !== n(S.saved[it.id])) changed[it.id] = n(S.counts[it.id]);
   });
-
-  var t = totals();
-  if (!t.counted) { toast('Tap + on the items you have'); return; }
 
   var btn = $('bBtn');
   btn.disabled = true;
@@ -1164,7 +1453,7 @@ async function saveCount() {
     if (!r || !r.success) throw new Error((r && r.message) || 'Unable to save.');
     Object.keys(changed).forEach(function (c) { S.saved[c] = changed[c]; });
     store.del('kap_counts_' + S.outlet);
-    toast('✓ Count saved');
+    toast('✓ Count saved. Now register each item.');
     renderAll();
     showTab('reg');
   } catch (e) {
@@ -1232,6 +1521,14 @@ function renderReg() {
   var bar = el('div', 'bar', '<i style="width:' + (t.saved ? Math.round(t.reg * 100 / t.saved) : 0) + '%"></i>');
   body.appendChild(bar);
 
+  var rt = tipEl('reg',
+    '<b>Step ② Register.</b> Tap an item (or <b>Start</b> below). For each unit:' +
+    '<ol><li>Stick a barcode sticker and tap <b>📷 Scan</b></li><li>Take a clear photo of the full item</li>' +
+    '<li>Tap the brand and condition</li></ol>Fill all units of the item, then tap <b>Submit all</b>.');
+  if (rt) body.appendChild(rt);
+
+  var nextIt = S.drafts.length ? null : nextPending();
+
   CONFIG.groups.forEach(function (g) {
 
     var items = CONFIG.catalog.filter(function (i) {
@@ -1254,9 +1551,10 @@ function renderReg() {
       else if (reg) st = '<span class="st part">' + reg + '/' + cnt + '</span>';
       else st = '<span class="st todo">0/' + cnt + '</span>';
 
-      var row = el('button', 'row',
+      var isNext = nextIt && nextIt.id === it.id;
+      var row = el('button', 'row' + (isNext ? ' next' : ''),
         '<div class="th">' + imgHtml(it) + '</div>' +
-        '<div class="rt"><b>' + esc(nameOf(it)) + '</b><span>' + cnt + ' counted · ' + here + ' registered' +
+        '<div class="rt"><b>' + esc(nameOf(it)) + (isNext ? '<span class="nexttag">Next</span>' : '') + '</b><span>' + cnt + ' counted · ' + here + ' registered' +
         (away ? ' · <b style="display:inline;font-size:12px;color:#92400e">' + away + ' at repair</b>' : '') + '</span></div>' + st);
       row.type = 'button';
       row.onclick = function () { openItem(it.id); };
@@ -1401,7 +1699,7 @@ async function changeUnits(delta) {
 function missing(u, it) {
 
   var m = [];
-  if (CONFIG.barcodeRequired && !u.noSticker && isEmpty(u.barcode)) m.push('barcode');
+  if (CONFIG.barcodeRequired && !u.noSticker && String(u.barcode || '').trim().length < 3) m.push('barcode');
   if (it.kind === 'equipment' && isEmpty(u.brand)) m.push('brand');
   if (isEmpty(u.condition)) m.push('condition');
   it.specs.forEach(function (s) { if (s.required && isEmpty(u.specs[s.key])) m.push('spec:' + s.key); });
@@ -1418,8 +1716,8 @@ function renderSheet() {
   var reg = have(G.itemId);
 
   $('shN').value = G.units.length;
-  $('shSub').textContent = reg ? reg + ' already registered · fill all ' + G.units.length + ' below'
-                               : 'Fill all ' + G.units.length + ' unit' + (G.units.length > 1 ? 's' : '') + ', then submit';
+  $('shSub').textContent = 'Unit ' + (G.cur + 1) + ' of ' + G.units.length +
+    (reg ? ' · ' + reg + ' already registered' : '') + ' · fill all, then submit';
 
   // unit pills
   var pills = $('units');
@@ -1445,6 +1743,7 @@ function renderSheet() {
   }
 
   renderUnitForm(it, u, copiedNow);
+  renderChecklist();
 
   // footer
   var last = G.cur === G.units.length - 1;
@@ -1543,6 +1842,7 @@ function changed() {
 }
 
 function refreshPills() {
+  renderChecklist();
   var it = ITEMS[G.itemId];
   var pills = $('units').children;
   G.units.forEach(function (u, i) {
@@ -1577,13 +1877,18 @@ function renderUnitForm(it, u, copiedNow) {
   /* ---- card 1: barcode + photos ---- */
 
   var c1 = el('div', 'card');
+  c1.appendChild(el('div', 'ctitle', 'Sticker & photo'));
 
   var fb = mark(fld('barcode', 'Barcode / Sticker No.', CONFIG.barcodeRequired), 'barcode');
   var row = el('div', 'bc');
   var bcIn = inputEl(u.barcode, function (v) {
     u.barcode = v.trim().toUpperCase();
-    clearErr(fb); bcMsg.textContent = ''; changed();
-  }, { placeholder: 'Scan or type' });
+    u.scanned = false;
+    clearErr(fb);
+    bcMsg.className = 'msg';
+    bcMsg.textContent = u.barcode ? 'Typed by hand – check it matches the sticker exactly.' : '';
+    changed();
+  }, { placeholder: 'Stick sticker, then scan' });
   bcIn.disabled = u.noSticker;
   var scan = el('button', 'btn', '📷 Scan');
   scan.type = 'button';
@@ -1610,7 +1915,9 @@ function renderUnitForm(it, u, copiedNow) {
   fb.appendChild(chk);
   c1.appendChild(fb);
 
-  var fp = fld('photos', 'Photos', false, '(first one required)');
+  var fp = fld('photo:photo1', 'Photos', false, '(first one required)');
+  fp.appendChild(el('div', 'ref', '<img src="' + esc(imgSrc(it)) + '" alt="">' +
+    '<span><b>Like this:</b> the full ' + esc(nameOf(it).toLowerCase()) + ' in the photo, good light, not blurry. Tap a photo to retake.</span>'));
   var grid = el('div', 'phs');
   var photoList = it.photos.slice();
   if (it.nameplate) photoList.push({ key: 'nameplate', label: 'Label sticker', required: false });
@@ -1629,6 +1936,7 @@ function renderUnitForm(it, u, copiedNow) {
   /* ---- card 2: brand + details + condition ---- */
 
   var c2 = el('div', 'card');
+  c2.appendChild(el('div', 'ctitle', 'Details'));
 
   if (it.kind === 'equipment') {
     var fbr = mark(fld('brand', 'Brand', true), 'brand');
@@ -1671,12 +1979,21 @@ function renderUnitForm(it, u, copiedNow) {
   var fc = mark(fld('condition', 'Working Condition', true), 'condition');
   var condOther = inputEl(u.conditionOther, function (v) { u.conditionOther = v; changed(); }, { placeholder: 'Describe the condition' });
   condOther.className = 'other' + (u.condition === 'Other' ? '' : ' hide');
+  var condWarn = el('div', 'warn-inline hide');
+  function paintCondWarn(v) {
+    var bad = ['Not Working', 'Partially Working', 'Damaged', 'Heavy Rust', 'Damaged / Dented', 'Leaking', 'Loose / Wobbly'];
+    condWarn.innerHTML = 'Needs repair? Register it here, <b>and</b> raise a ticket in FixFlow.';
+    condWarn.classList.toggle('hide', bad.indexOf(v) < 0);
+  }
   fc.appendChild(chipsEl(it.conditions, u.condition, function (v) {
     u.condition = v; clearErr(fc);
     condOther.classList.toggle('hide', v !== 'Other');
+    paintCondWarn(v);
     changed();
   }, false, true));
   fc.appendChild(condOther);
+  fc.appendChild(condWarn);
+  paintCondWarn(u.condition);
   c2.appendChild(fc);
 
   form.appendChild(c2);
@@ -1909,6 +2226,7 @@ async function onScanFile() {
   }
 
   u.barcode = code;
+  u.scanned = true;
   changed();
   renderUnitForm(ITEMS[G.itemId], u, false);
   var m2 = $('bcMsg');
@@ -1950,7 +2268,18 @@ async function submitGroup() {
     seen[b] = j;
   }
 
-  if (navigator.onLine === false) { toast('No internet. Saved on this phone – try again when online.'); return; }
+  if (APP.API_URL && navigator.onLine === false) { toast('No internet. Saved on this phone – try again when online.'); return; }
+
+  var toSend = G.units.filter(function (x) { return !x.savedId; });
+  var list = toSend.map(function (x) {
+    var i2 = G.units.indexOf(x) + 1;
+    return '<div class="rv-row"><span>Unit ' + i2 + ' · ' + esc(x.brand || nameOf(it)) + ' · ' + esc(x.condition) + '</span><b class="aid" style="font-size:12.5px">' +
+      esc(x.noSticker ? 'no sticker' : x.barcode) + '</b></div>';
+  }).join('');
+  var ok = await ask('Submit ' + toSend.length + ' × ' + nameOf(it) + '?',
+    '<p>Check that each barcode matches the sticker on that unit. After submitting, changes can only be made by the R&amp;M team.</p><div class="rv">' + list + '</div>',
+    [{ t: 'Yes, submit', v: 'go' }, { t: '← Back to check', v: '', cls: 'sec' }]);
+  if (ok !== 'go') return;
 
   var btn = $('fNext');
   btn.disabled = true;
