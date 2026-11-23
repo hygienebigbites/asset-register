@@ -368,6 +368,29 @@
     .zi-step { background: #fff; }
     .zi-step button { width: 34px; height: 32px; }
     .zi-step input { height: 32px; font-size: 16px; }
+    .pc-img { width: 100%; max-height: 38vh; object-fit: contain; border-radius: 10px; background: #000; margin-bottom: 10px; }
+    .rv-unit { align-items: center; }
+    .rv-unit span { flex: 1; min-width: 0; }
+    .rv-ph { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; flex: none; }
+    .rv-flag { font-style: normal; color: var(--warn); font-size: 11.5px; }
+
+    /* ---------- in-app camera ---------- */
+    .cam { position: fixed; inset: 0; z-index: 80; background: #000; display: none; flex-direction: column; color: #fff; }
+    .cam.open { display: flex; }
+    .cam-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; font-size: 15px; }
+    .cam-x { background: rgba(255,255,255,.15); border: none; color: #fff; width: 38px; height: 38px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+    .cam-view { position: relative; flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .cam-view video { width: 100%; height: 100%; object-fit: cover; }
+    .cam-frame { position: absolute; inset: 8% 6%; border: 2px solid rgba(255,255,255,.7); border-radius: 14px; pointer-events: none; }
+    .cam-frame.scan { inset: 38% 12%; border-color: #22c55e; }
+    .cam-hint { text-align: center; font-size: 13.5px; padding: 10px 16px 0; color: #e5e7eb; min-height: 30px; }
+    .cam-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); }
+    .cam-alt { background: none; border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 999px; padding: 8px 10px; font-size: 12px; width: 100px; cursor: pointer; }
+    .cam-shot { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,.25); cursor: pointer; }
+    .cam-shot:active { background: #fff; }
+    .cam-sp { width: 100px; }
+    button.ph { font-family: inherit; width: 100%; color: var(--muted); }
+
     .nexttag { display: inline-block; background: var(--ink); color: #fff; font-size: 10.5px; border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
 
   </style>
@@ -482,6 +505,19 @@
 <div class="toast" id="toast"></div>
 
 <input type="file" id="scanInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+
+<!-- in-app camera: the browser is never closed, so nothing is lost on low-memory phones -->
+<div class="cam" id="cam">
+  <div class="cam-top"><b id="camTitle"></b><button type="button" class="cam-x" onclick="closeCamera(null)" aria-label="Close camera">✕</button></div>
+  <div class="cam-view"><video id="camVideo" playsinline muted autoplay></video><div class="cam-frame" id="camFrame"></div></div>
+  <div class="cam-hint" id="camHint"></div>
+  <div class="cam-bar">
+    <button type="button" class="cam-alt" onclick="closeCamera('fallback')">Use phone camera</button>
+    <button type="button" class="cam-shot" id="camShot" onclick="capturePhoto()" aria-label="Take photo"></button>
+    <span class="cam-sp"></span>
+  </div>
+</div>
 
 
 
@@ -843,6 +879,13 @@ function saveDraftSoon() {
   saveTimer = setTimeout(function () { DB.put(draftKey(snapshot.outlet, snapshot.itemId), snapshot); }, 400);
 }
 
+function saveDraftNow() {
+  if (!G) return;
+  clearTimeout(saveTimer);
+  G.updatedAt = Date.now();
+  DB.put(draftKey(G.outlet, G.itemId), G);
+}
+
 function unitHasData(u) {
   return !!(u.savedId || u.barcode || u.brand || u.condition || Object.keys(u.photos || {}).length);
 }
@@ -970,6 +1013,10 @@ function loadOutlet() {
     if (S.outlet !== outlet) return;
     S.drafts = list.filter(draftHasData);
     renderAll();
+    // the page was closed while an item was open (e.g. low memory) → reopen it
+    var wasOpen = store.get('kap_open');
+    var d = wasOpen && !G && S.drafts.filter(function (x) { return draftKey(x.outlet, x.itemId) === wasOpen; })[0];
+    if (d) { openDraft(d); toast('Restored – continue where you left off'); }
   });
 
   callServer('getOutletStatus', outlet).then(function (r) {
@@ -1629,6 +1676,7 @@ async function openItem(itemId) {
 function openDraft(d) {
   G = d;
   G.showErr = {};
+  store.set('kap_open', draftKey(d.outlet, d.itemId));   // reopen here if the page reloads
   if (G.cur >= G.units.length) G.cur = 0;
   var it = ITEMS[G.itemId];
   $('shTitle').textContent = nameOf(it);
@@ -1659,6 +1707,7 @@ async function pauseGroup() {
 }
 
 function closeSheet() {
+  store.del('kap_open');
   $('sheet').classList.remove('open');
   document.body.style.overflow = '';
   G = null;
@@ -1893,7 +1942,14 @@ function renderUnitForm(it, u, copiedNow) {
   var scan = el('button', 'btn', '📷 Scan');
   scan.type = 'button';
   scan.disabled = u.noSticker;
-  scan.onclick = function () { $('scanInput').value = ''; $('scanInput').click(); };
+  scan.onclick = function () {
+    if (!camOK()) { $('scanInput').value = ''; $('scanInput').click(); return; }
+    var unit = u;
+    openCamera('scan', 'Scan barcode').then(function (code) {
+      if (code === 'fallback') { $('scanInput').value = ''; $('scanInput').click(); return; }
+      if (code) applyBarcode(unit, code);
+    });
+  };
   row.appendChild(bcIn); row.appendChild(scan);
   fb.appendChild(row);
 
@@ -2077,10 +2133,51 @@ function renderUnitForm(it, u, copiedNow) {
 
 function photoTile(u, p, wrap) {
 
-  var t = el('label', 'ph');
-  var input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*';
-  input.setAttribute('capture', 'environment');
+  var t = el('button', 'ph');
+  t.type = 'button';
+  var input = $('photoInput');
+
+  function nativeCamera() {
+    input.value = '';
+    input.onchange = onNativeFile;
+    input.click();
+  }
+
+  function setPhoto(r) {
+    if (!(r && r.data)) {
+      if (r !== null) toast('Could not read that photo. Please retake.');
+      paint();
+      return;
+    }
+    t.innerHTML = '<span class="ic">🔍</span>Checking…';
+    checkPhoto(r, u, p).then(function (issues) {
+      if (!issues.length) { keep(r); return; }
+      ask('Check this photo', '<img class="pc-img" src="data:image/jpeg;base64,' + r.data + '" alt="">' +
+        '<p>' + esc(p.label) + ' photo ' + esc(issues.join(', ')) + '.</p>' +
+        '<p class="hint">A clear photo helps the R&amp;M team identify this unit later.</p>',
+        [{ t: '📷 Retake photo', v: 'retake' }, { t: 'It\'s correct – use it', v: 'use', cls: 'sec' }]
+      ).then(function (v) {
+        if (v === 'use') { r.flag = issues.join(', '); keep(r); }
+        else { paint(); t.click(); }
+      });
+    });
+  }
+
+  function keep(r) {
+    u.photos[p.key] = r;
+    wrap.classList.remove('err');
+    changed();
+    saveDraftNow();
+    paint();
+  }
+
+  t.onclick = function () {
+    if (!camOK()) { nativeCamera(); return; }          // old phone: use the phone camera app
+    openCamera('photo', p.label).then(function (r) {
+      if (r === 'fallback') { nativeCamera(); return; }
+      if (r) setPhoto(r);
+    });
+  };
 
   function paint() {
     var ph = u.photos[p.key];
@@ -2092,20 +2189,14 @@ function photoTile(u, p, wrap) {
     } else {
       t.innerHTML = '<span class="ic">📷</span>' + esc(p.label) + (p.required ? ' <span class="rq">*</span>' : '');
     }
-    t.appendChild(input);
   }
 
-  input.onchange = function () {
+  function onNativeFile() {
     if (!input.files || !input.files.length) return;
     var file = input.files[0];
     t.innerHTML = '<span class="ic">⏳</span>Preparing…';
-    t.appendChild(input);
-    compressImage(file).then(function (r) {
-      if (r) { u.photos[p.key] = r; wrap.classList.remove('err'); changed(); }
-      else toast('Could not read that photo. Please retake.');
-      paint();
-    });
-  };
+    compressImage(file).then(function (r) { input.value = ''; setPhoto(r || false); });
+  }
 
   paint();
   return t;
@@ -2126,6 +2217,24 @@ function compressImage(file, max, quality) {
       reader.readAsDataURL(file);
     }
 
+    // low-memory path: let the browser decode straight to a small size
+    if (window.createImageBitmap && max <= 1600) {
+      createImageBitmap(file, { resizeWidth: max, resizeQuality: 'medium' }).then(function (bmp) {
+        var k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(bmp.width * k);
+        canvas.height = Math.round(bmp.height * k);
+        canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        if (bmp.close) bmp.close();
+        var dataUrl = canvas.toDataURL('image/jpeg', quality);
+        canvas.width = canvas.height = 0;
+        resolve({ data: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+      }).catch(function () { classic(); });
+      return;
+    }
+    classic();
+
+    function classic() {
     try {
       var url = URL.createObjectURL(file);
       var img = new Image();
@@ -2145,9 +2254,195 @@ function compressImage(file, max, quality) {
       img.onerror = function () { fallback(); };
       img.src = url;
     } catch (e) { fallback(); }
+    }
 
   });
 
+}
+
+
+/* =========================================
+   PHOTO CHECKS (on the phone, instant)
+   blurry · too dark · too bright · empty/covered · same photo twice
+========================================= */
+
+function photoStats(ph) {
+  return new Promise(function (resolve) {
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var w = 200, h = Math.max(8, Math.round(img.naturalHeight * w / img.naturalWidth));
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        var x = c.getContext('2d');
+        x.drawImage(img, 0, 0, w, h);
+        var d = x.getImageData(0, 0, w, h).data;
+        var g = new Float32Array(w * h), sum = 0, sq = 0, i;
+        for (i = 0; i < w * h; i++) { g[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]; sum += g[i]; }
+        var mean = sum / (w * h);
+        for (i = 0; i < w * h; i++) sq += (g[i] - mean) * (g[i] - mean);
+        var std = Math.sqrt(sq / (w * h));
+        // sharpness = variance of the Laplacian
+        var ls = 0, ls2 = 0, cnt = 0;
+        for (var yy = 1; yy < h - 1; yy++) for (var xx = 1; xx < w - 1; xx++) {
+          var k = yy * w + xx;
+          var l = g[k - 1] + g[k + 1] + g[k - w] + g[k + w] - 4 * g[k];
+          ls += l; ls2 += l * l; cnt++;
+        }
+        var lap = ls2 / cnt - (ls / cnt) * (ls / cnt);
+        // fingerprint (difference hash 9x8) to spot the same photo used twice
+        c.width = 9; c.height = 8;
+        x.drawImage(img, 0, 0, 9, 8);
+        var s8 = x.getImageData(0, 0, 9, 8).data, bits = '';
+        for (var r = 0; r < 8; r++) for (var q = 0; q < 8; q++) {
+          var a = (r * 9 + q) * 4, b = (r * 9 + q + 1) * 4;
+          bits += (s8[a] + s8[a + 1] + s8[a + 2]) > (s8[b] + s8[b + 1] + s8[b + 2]) ? '1' : '0';
+        }
+        c.width = c.height = 0;
+        resolve({ mean: mean, std: std, lap: lap, hash: bits });
+      } catch (e) { resolve(null); }
+    };
+    img.onerror = function () { resolve(null); };
+    img.src = 'data:' + (ph.mimeType || 'image/jpeg') + ';base64,' + ph.data;
+  });
+}
+
+function hamming(a, b) {
+  if (!a || !b || a.length !== b.length) return 99;
+  var n2 = 0;
+  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) n2++;
+  return n2;
+}
+
+/* returns a list of problems (empty = fine); stores the fingerprint on the photo */
+function checkPhoto(ph, u, p) {
+  return photoStats(ph).then(function (q) {
+    var issues = [];
+    if (!q) return issues;
+    ph.hash = q.hash;
+    if (q.mean < 45) issues.push('is too dark – turn on the light or move closer to it');
+    else if (q.mean > 245) issues.push('is too bright – avoid pointing at a light or window');
+    else if (q.std < 8) issues.push('looks empty – lens covered or only a wall');
+    else if (q.lap < 12) issues.push('is blurry – hold the phone still');
+    if (G) {
+      G.units.forEach(function (other, ui) {
+        Object.keys(other.photos || {}).forEach(function (key) {
+          if (other === u && key === p.key) return;
+          var o = other.photos[key];
+          if (o && o.hash && hamming(o.hash, q.hash) <= 4) {
+            issues.push(other === u ? 'looks the same as another photo of this unit'
+                                    : 'looks the same as the Unit ' + (ui + 1) + ' photo – each unit needs its own photo');
+          }
+        });
+      });
+    }
+    return issues.filter(function (x, i, arr) { return arr.indexOf(x) === i; });
+  });
+}
+
+function photoFlagText(unit) {
+  var it = ITEMS[G ? G.itemId : ''];
+  var labels = {};
+  if (it) it.photos.forEach(function (ph) { labels[ph.key] = ph.label; });
+  var flags = Object.keys(unit.photos || {}).filter(function (k) { return unit.photos[k] && unit.photos[k].flag; })
+    .map(function (k) { return (labels[k] || 'Label') + ': ' + unit.photos[k].flag; });
+  return flags.length ? '[Photo check – ' + flags.join('; ') + '] ' : '';
+}
+
+
+/* =========================================
+   IN-APP CAMERA
+   Phones with little memory close the browser when the camera app
+   opens ("Unable to complete previous operation due to low memory").
+   Taking the photo / scanning inside the page avoids that.
+========================================= */
+
+var CAM = { stream: null, mode: '', resolve: null, timer: null, reader: null, busy: false, failed: false };
+
+function camOK() {
+  return !CAM.failed && window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+/* mode 'photo' → {data, mimeType}; mode 'scan' → barcode text;
+   null = closed; 'fallback' = use the phone camera app instead */
+function openCamera(mode, title) {
+  return new Promise(function (resolve) {
+    CAM.mode = mode; CAM.resolve = resolve;
+    $('camTitle').textContent = title;
+    $('camHint').textContent = mode === 'scan'
+      ? 'Point at the barcode sticker. It reads by itself.'
+      : 'Keep the full item inside the frame, then tap the round button.';
+    $('camShot').classList.toggle('hide', mode === 'scan');
+    $('camFrame').classList.toggle('scan', mode === 'scan');
+    $('cam').classList.add('open');
+    navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
+    }).then(function (st) {
+      if (!CAM.resolve) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
+      CAM.stream = st;
+      var v = $('camVideo');
+      v.srcObject = st;
+      v.play().catch(function () {});
+      if (mode === 'scan') startScanLoop();
+    }).catch(function () {
+      CAM.failed = true;                // next time go straight to the phone camera
+      toast('Camera not allowed here – opening the phone camera');
+      closeCamera('fallback');
+    });
+  });
+}
+
+function closeCamera(result) {
+  clearInterval(CAM.timer); CAM.timer = null;
+  if (CAM.reader) { try { CAM.reader.reset(); } catch (e) {} CAM.reader = null; }
+  if (CAM.stream) { CAM.stream.getTracks().forEach(function (t) { t.stop(); }); CAM.stream = null; }
+  var v = $('camVideo');
+  v.pause(); v.srcObject = null;
+  $('cam').classList.remove('open');
+  var r = CAM.resolve; CAM.resolve = null;
+  if (r) r(result === undefined ? null : result);
+}
+
+function capturePhoto() {
+  var v = $('camVideo');
+  if (!v.videoWidth) { toast('Camera is starting…'); return; }
+  var max = 1280;
+  var k = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight));
+  var c = document.createElement('canvas');
+  c.width = Math.round(v.videoWidth * k);
+  c.height = Math.round(v.videoHeight * k);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  var dataUrl = c.toDataURL('image/jpeg', 0.72);
+  c.width = c.height = 0;
+  closeCamera({ data: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+}
+
+function startScanLoop() {
+  var v = $('camVideo');
+  var det = null;
+  if ('BarcodeDetector' in window) { try { det = new BarcodeDetector(); } catch (e) { det = null; } }
+  if (det) {
+    CAM.timer = setInterval(function () {
+      if (!v.videoWidth || CAM.busy) return;
+      CAM.busy = true;
+      det.detect(v).then(function (r) {
+        CAM.busy = false;
+        if (r && r.length && CAM.resolve) closeCamera(String(r[0].rawValue));
+      }).catch(function () { CAM.busy = false; });
+    }, 300);
+    return;
+  }
+  loadZXing().then(function () {
+    if (!CAM.stream) return;
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    CAM.reader = new ZXing.BrowserMultiFormatReader(hints, 300);
+    CAM.reader.decodeOnceFromVideoElement(v).then(function (res) {
+      if (res && CAM.resolve) closeCamera(res.getText());
+    }).catch(function () {});
+  }).catch(function () {
+    $('camHint').textContent = 'Scanner could not load. Close and type the number.';
+  });
 }
 
 
@@ -2217,6 +2512,14 @@ async function onScanFile() {
     return;
   }
 
+  applyBarcode(u, code);
+
+}
+
+function applyBarcode(u, code) {
+
+  if (!G || G.units[G.cur] !== u) return;
+  var msg = $('bcMsg');
   code = String(code).trim().toUpperCase();
 
   var dupe = G.units.some(function (x) { return x !== u && x.barcode === code; });
@@ -2228,6 +2531,7 @@ async function onScanFile() {
   u.barcode = code;
   u.scanned = true;
   changed();
+  saveDraftNow();
   renderUnitForm(ITEMS[G.itemId], u, false);
   var m2 = $('bcMsg');
   if (m2) { m2.className = 'msg ok'; m2.textContent = '✓ Scanned ' + code; }
@@ -2273,11 +2577,17 @@ async function submitGroup() {
   var toSend = G.units.filter(function (x) { return !x.savedId; });
   var list = toSend.map(function (x) {
     var i2 = G.units.indexOf(x) + 1;
-    return '<div class="rv-row"><span>Unit ' + i2 + ' · ' + esc(x.brand || nameOf(it)) + ' · ' + esc(x.condition) + '</span><b class="aid" style="font-size:12.5px">' +
-      esc(x.noSticker ? 'no sticker' : x.barcode) + '</b></div>';
+    var ph = x.photos && x.photos.photo1;
+    return '<div class="rv-row rv-unit">' +
+      (ph ? '<img class="rv-ph" src="data:' + (ph.mimeType || 'image/jpeg') + ';base64,' + ph.data + '" alt="">' : '') +
+      '<span>Unit ' + i2 + ' · ' + esc(x.brand || nameOf(it)) + ' · ' + esc(x.condition) +
+      (photoFlagText(x) ? '<br><em class="rv-flag">⚠ photo marked as unclear</em>' : '') + '</span>' +
+      '<b class="aid" style="font-size:12.5px">' + esc(x.noSticker ? 'no sticker' : x.barcode) + '</b></div>';
   }).join('');
   var ok = await ask('Submit ' + toSend.length + ' × ' + nameOf(it) + '?',
-    '<p>Check that each barcode matches the sticker on that unit. After submitting, changes can only be made by the R&amp;M team.</p><div class="rv">' + list + '</div>',
+    '<div class="ref" style="margin-bottom:8px"><img src="' + esc(imgSrc(it)) + '" alt=""><span>Each photo below should show a <b>' + esc(nameOf(it).toLowerCase()) + '</b> like this. ' +
+    'Check each barcode matches the sticker on that unit.</span></div><div class="rv">' + list + '</div>' +
+    '<p class="hint" style="margin:-4px 0 12px">After submitting, changes can only be made by the R&amp;M team.</p>',
     [{ t: 'Yes, submit', v: 'go' }, { t: '← Back to check', v: '', cls: 'sec' }]);
   if (ok !== 'go') return;
 
@@ -2320,7 +2630,7 @@ async function submitGroup() {
         brand: unit.brand, model: unit.model, specs: unit.specs,
         condition: unit.condition, conditionOther: unit.conditionOther,
         repairCount: unit.repairCount, repairIssue: unit.repairIssue, repairIssueOther: unit.repairIssueOther,
-        remarks: unit.remarks, photos: unit.photos
+        remarks: photoFlagText(unit) + (unit.remarks || ''), photos: unit.photos
       });
 
       if (!r || !r.success) {
