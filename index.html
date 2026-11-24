@@ -119,12 +119,16 @@
     }
     .cc.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
     .cc.saved { background: #f0fdf4; border-color: #22c55e; box-shadow: 0 0 0 1px #22c55e inset; }
-    .cc.saved.none { background: #f7fdf9; border-color: #86efac; box-shadow: none; }
+    .cc.saved.none { background: #f3f4f6; border-color: #d1d5db; box-shadow: none; }
+    .cc.saved.none .cimg { opacity: .55; }
+    .cc.saved.none .cname { color: #6b7280; }
+    .cc.saved.none .cedit { border-color: #d1d5db; color: #4b5563; }
     .cc.saved .cimg { background: #fff; }
     .ctick { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: #16a34a; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 1; }
     .cval { text-align: center; font-size: 22px; font-weight: bold; color: #166534; line-height: 1.1; }
     .cval small { font-size: 11px; font-weight: normal; color: #4d7c0f; }
-    .cc.saved.none .cval { color: #4b5563; font-size: 18px; }
+    .cc.saved.none .cval { color: #6b7280; font-size: 18px; }
+    .cc.saved.none .cval small { color: #6b7280; }
     .cedit { margin-top: 6px; border: 1px solid #86efac; background: #fff; color: #166534; border-radius: 8px; height: 30px; font-size: 12.5px; font-weight: bold; cursor: pointer; }
     .cc.chg { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b inset; background: #fffbeb; }
     .chgtag { background: #fef3c7 !important; color: #92400e !important; }
@@ -416,6 +420,12 @@
     .cam-shot { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,.25); cursor: pointer; }
     .cam-shot:active { background: #fff; }
     .cam-sp { width: 100px; }
+    .cam-confirm { position: absolute; left: 12px; right: 12px; bottom: calc(24px + env(safe-area-inset-bottom)); background: #fff; color: var(--text); border-radius: 16px; padding: 16px; z-index: 2; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+    .cam-confirm .cc-l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .cam-confirm .cc-code { font-family: "Courier New", monospace; font-size: 26px; font-weight: bold; color: var(--ink); margin: 6px 0; word-break: break-all; }
+    .cam-confirm .cc-p { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .cam-confirm .cc-b { display: flex; gap: 8px; }
+    .cam-confirm .cc-b .btn { flex: 1; }
     button.ph { font-family: inherit; width: 100%; color: var(--muted); }
 
     .nexttag { display: inline-block; background: var(--ink); color: #fff; font-size: 10.5px; border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
@@ -540,6 +550,15 @@
   <div class="cam-top"><b id="camTitle"></b><button type="button" class="cam-x" onclick="closeCamera(null)" aria-label="Close camera">✕</button></div>
   <div class="cam-view"><video id="camVideo" playsinline muted autoplay></video><div class="cam-frame" id="camFrame"></div></div>
   <div class="cam-hint" id="camHint"></div>
+  <div class="cam-confirm hide" id="camConfirm">
+    <div class="cc-l">Barcode read</div>
+    <div class="cc-code" id="camCode"></div>
+    <div class="cc-p">Check it matches the number printed on the sticker.</div>
+    <div class="cc-b">
+      <button type="button" class="btn" id="camUse">✓ Use this</button>
+      <button type="button" class="btn sec" id="camAgain">↻ Scan again</button>
+    </div>
+  </div>
   <div class="cam-bar">
     <button type="button" class="cam-alt" onclick="closeCamera('fallback')">Use phone camera</button>
     <button type="button" class="cam-shot" id="camShot" onclick="capturePhoto()" aria-label="Take photo"></button>
@@ -1185,10 +1204,9 @@ function anySaved() {
   return CONFIG.catalog.some(function (it) { return S.saved[it.id] !== undefined; });
 }
 
-/* saved number of an item; once an outlet has saved, items not recorded count as 0 */
+/* saved number of an item (undefined = the sheet has not saved this item) */
 function savedVal(id) {
-  if (S.saved[id] !== undefined) return n(S.saved[id]);
-  return anySaved() ? 0 : undefined;
+  return S.saved[id] !== undefined ? n(S.saved[id]) : undefined;
 }
 
 function countDirty() {
@@ -1204,7 +1222,7 @@ function paintSavedHead() {
   head.className = 'saved-head' + (changedN ? ' pending' : '');
   head.innerHTML = '<div><b>' + (changedN ? '✏️ Count changed' : '✓ Count saved') + '</b><span>' + who + '.<br>' +
     (changedN ? '<b class="hl">' + changedN + ' change' + (changedN > 1 ? 's' : '') + ' not saved yet – tap Save Count.</b>'
-              : 'Green items are saved. Tap <b class="hl ok">✏️ Edit</b> on an item to change it.') + '</span></div>';
+              : 'Green ✓ = saved count · grey = saved as 0 (none). Tap <b class="hl ok">✏️ Edit</b> to change.') + '</span></div>';
 }
 
 /* saved item shown green with its number; ✏️ Edit opens + / − */
@@ -1553,7 +1571,7 @@ function countCard(it) {
   if (isSavedCard(it.id)) {
     var g = el('div', 'cc saved' + (sv ? '' : ' none'));
     g.innerHTML =
-      '<span class="ctick">✓</span>' +
+      (sv ? '<span class="ctick">✓</span>' : '') +
       (reg ? '<span class="creg">' + reg + ' reg</span>' : '') +
       '<div class="cimg">' + imgHtml(it) + '</div>' +
       '<div class="cname">' + esc(nameOf(it)) + '</div>' +
@@ -1909,7 +1927,7 @@ async function changeUnits(delta) {
 function missing(u, it) {
 
   var m = [];
-  if (CONFIG.barcodeRequired && !u.noSticker && String(u.barcode || '').trim().length < 3) m.push('barcode');
+  if (CONFIG.barcodeRequired && !u.noSticker && !validCode(cleanCode(u.barcode))) m.push('barcode');
   if (it.kind === 'equipment' && isEmpty(u.brand)) m.push('brand');
   if (isEmpty(u.condition)) m.push('condition');
   if (isEmpty(u.usage)) m.push('usage');
@@ -2096,8 +2114,10 @@ function renderUnitForm(it, u, copiedNow) {
     u.barcode = v.trim().toUpperCase();
     u.scanned = false;
     clearErr(fb);
-    bcMsg.className = 'msg';
-    bcMsg.textContent = u.barcode ? 'Typed by hand – check it matches the sticker exactly.' : '';
+    bcMsg.className = u.barcode && !validCode(cleanCode(u.barcode)) ? 'msg bad' : 'msg';
+    bcMsg.textContent = !u.barcode ? ''
+      : !validCode(cleanCode(u.barcode)) ? 'Use only letters, numbers and - / . (at least 4 characters).'
+      : 'Typed by hand – check it matches the sticker exactly.';
     changed();
   }, { placeholder: 'Stick sticker, then scan' });
   bcIn.disabled = u.noSticker;
@@ -2567,6 +2587,8 @@ function openCamera(mode, title) {
 
 function closeCamera(result) {
   clearInterval(CAM.timer); CAM.timer = null;
+  CAM.paused = false;
+  $('camConfirm').classList.add('hide');
   if (CAM.reader) { try { CAM.reader.reset(); } catch (e) {} CAM.reader = null; }
   if (CAM.stream) { CAM.stream.getTracks().forEach(function (t) { t.stop(); }); CAM.stream = null; }
   var v = $('camVideo');
@@ -2590,32 +2612,90 @@ function capturePhoto() {
   closeCamera({ data: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
 }
 
+/* A real sticker code: letters, numbers and - _ / .  (4 to 40 long).
+   Misreads often contain symbols like & ' % — those are rejected. */
+var BARCODE_PATTERN = /^[A-Z0-9][A-Z0-9\-_\/.]{3,39}$/;
+
+function cleanCode(raw) {
+  return String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+function validCode(code) { return BARCODE_PATTERN.test(code); }
+
+/* camera keeps reading; a code is accepted only after the SAME valid value
+   is read twice in a row, then staff confirm it */
 function startScanLoop() {
   var v = $('camVideo');
+  var last = '', hits = 0, bad = 0;
+
+  function onRead(list) {
+    if (!CAM.resolve || CAM.paused) return;
+    var codes = list.map(cleanCode).filter(Boolean);
+    var good = codes.filter(validCode);
+    if (!good.length) {
+      if (codes.length && ++bad % 4 === 0) $('camHint').textContent = 'Not clear yet – hold steady, closer, with good light.';
+      return;
+    }
+    var code = good[0];
+    if (code === last) hits++; else { last = code; hits = 1; }
+    if (hits >= 2) { CAM.paused = true; showScanConfirm(code); }
+  }
+
   var det = null;
   if ('BarcodeDetector' in window) { try { det = new BarcodeDetector(); } catch (e) { det = null; } }
   if (det) {
     CAM.timer = setInterval(function () {
-      if (!v.videoWidth || CAM.busy) return;
+      if (!v.videoWidth || CAM.busy || CAM.paused) return;
       CAM.busy = true;
       det.detect(v).then(function (r) {
         CAM.busy = false;
-        if (r && r.length && CAM.resolve) closeCamera(String(r[0].rawValue));
+        // biggest barcode first (the sticker in front, not one in the background)
+        r = (r || []).slice().sort(function (x, y) {
+          var ax = x.boundingBox ? x.boundingBox.width * x.boundingBox.height : 0;
+          var ay = y.boundingBox ? y.boundingBox.width * y.boundingBox.height : 0;
+          return ay - ax;
+        });
+        onRead(r.map(function (x) { return x.rawValue; }));
       }).catch(function () { CAM.busy = false; });
-    }, 300);
+    }, 250);
     return;
   }
+
   loadZXing().then(function () {
     if (!CAM.stream) return;
     var hints = new Map();
     hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    CAM.reader = new ZXing.BrowserMultiFormatReader(hints, 300);
-    CAM.reader.decodeOnceFromVideoElement(v).then(function (res) {
-      if (res && CAM.resolve) closeCamera(res.getText());
-    }).catch(function () {});
+    var reader = new ZXing.MultiFormatReader();
+    reader.setHints(hints);
+    var c = document.createElement('canvas');
+    CAM.timer = setInterval(function () {
+      if (!v.videoWidth || CAM.busy || CAM.paused) return;
+      CAM.busy = true;
+      try {
+        var k = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight));
+        c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)));
+        var res = reader.decode(bmp);
+        onRead(res ? [res.getText()] : []);
+      } catch (e) { /* nothing found in this frame */ }
+      CAM.busy = false;
+    }, 350);
   }).catch(function () {
     $('camHint').textContent = 'Scanner could not load. Close and type the number.';
   });
+}
+
+function showScanConfirm(code) {
+  $('camCode').textContent = code;
+  $('camConfirm').classList.remove('hide');
+  $('camHint').textContent = '';
+  $('camUse').onclick = function () { $('camConfirm').classList.add('hide'); CAM.paused = false; closeCamera(code); };
+  $('camAgain').onclick = function () {
+    $('camConfirm').classList.add('hide');
+    $('camHint').textContent = 'Point at the barcode sticker. It reads by itself.';
+    CAM.paused = false;
+    startScanLoop();
+  };
 }
 
 
@@ -2693,7 +2773,12 @@ function applyBarcode(u, code) {
 
   if (!G || G.units[G.cur] !== u) return;
   var msg = $('bcMsg');
-  code = String(code).trim().toUpperCase();
+  code = cleanCode(code);
+
+  if (!validCode(code)) {
+    if (msg) { msg.className = 'msg bad'; msg.textContent = 'Could not read the sticker correctly. Scan again closer, or type the number printed on it.'; }
+    return;
+  }
 
   var dupe = G.units.some(function (x) { return x !== u && x.barcode === code; });
   if (dupe) {
