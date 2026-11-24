@@ -413,7 +413,11 @@
     .cam-view { position: relative; flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .cam-view video { width: 100%; height: 100%; object-fit: cover; }
     .cam-frame { position: absolute; inset: 8% 6%; border: 2px solid rgba(255,255,255,.7); border-radius: 14px; pointer-events: none; }
-    .cam-frame.scan { inset: 38% 12%; border-color: #22c55e; }
+    .cam-frame.scan { inset: 30% 7%; border-color: #22c55e; border-width: 3px; }
+    .cam-shot-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    #camShotLbl { font-size: 12px; color: #e5e7eb; min-height: 14px; }
+    .cam-shot.scanmode { border-color: #22c55e; }
+    .cam-sp { display: flex; justify-content: flex-end; }
     .cam-hint { text-align: center; font-size: 13.5px; padding: 10px 16px 0; color: #e5e7eb; min-height: 30px; }
     .cam-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); }
     .cam-alt { background: none; border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 999px; padding: 8px 10px; font-size: 12px; width: 100px; cursor: pointer; }
@@ -561,8 +565,8 @@
   </div>
   <div class="cam-bar">
     <button type="button" class="cam-alt" onclick="closeCamera('fallback')">Use phone camera</button>
-    <button type="button" class="cam-shot" id="camShot" onclick="capturePhoto()" aria-label="Take photo"></button>
-    <span class="cam-sp"></span>
+    <div class="cam-shot-wrap"><button type="button" class="cam-shot" id="camShot" onclick="capturePhoto()" aria-label="Take photo"></button><span id="camShotLbl"></span></div>
+    <span class="cam-sp"><button type="button" class="cam-alt hide" id="camTorch">🔦 Light</button></span>
   </div>
 </div>
 
@@ -952,7 +956,7 @@ function draftHasData(d) {
 /* =========================================
    APP VERSION — staff get "Update" when a newer index.html is live
 ========================================= */
-var APP_VERSION = '2026-11-24.2';
+var APP_VERSION = '2026-11-24.4';
 
 function checkForUpdate() {
   if (!/^https?:/.test(location.protocol)) return;
@@ -1874,6 +1878,7 @@ async function openItem(itemId) {
 }
 
 function openDraft(d) {
+  if (!('BarcodeDetector' in window)) loadZXing().catch(function () {});   // scanner ready before the camera opens
   G = d;
   G.showErr = {};
   store.set('kap_open', draftKey(d.outlet, d.itemId));   // reopen here if the page reloads
@@ -2138,6 +2143,7 @@ function renderUnitForm(it, u, copiedNow) {
     bcMsg.className = u.barcode && !validCode(cleanCode(u.barcode)) ? 'msg bad' : 'msg';
     bcMsg.textContent = !u.barcode ? ''
       : !validCode(cleanCode(u.barcode)) ? 'Use only letters, numbers and - / . (at least 4 characters).'
+      : !isHybbSticker(cleanCode(u.barcode)) ? '⚠ Not the usual format (like CH-CMP01CHN10-005) – check the sticker again.'
       : 'Typed by hand – check it matches the sticker exactly.';
     changed();
   }, { placeholder: 'Stick sticker, then scan' });
@@ -2583,20 +2589,25 @@ function openCamera(mode, title) {
     CAM.mode = mode; CAM.resolve = resolve;
     $('camTitle').textContent = title;
     $('camHint').textContent = mode === 'scan'
-      ? 'Point at the barcode sticker. It reads by itself.'
+      ? 'Hold the sticker straight so the bars fill the green box. It reads by itself – or tap 📸 Capture.'
       : 'Keep the full item inside the frame, then tap the round button.';
-    $('camShot').classList.toggle('hide', mode === 'scan');
+    $('camShot').classList.remove('hide');
+    $('camShot').classList.toggle('scanmode', mode === 'scan');
+    $('camShotLbl').textContent = mode === 'scan' ? '📸 Capture' : '';
     $('camFrame').classList.toggle('scan', mode === 'scan');
     $('cam').classList.add('open');
+    CAM.det = null; CAM.zx = null; CAM.paused = false;
+    var big = mode === 'scan';
     navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: big ? 1920 : 1280 }, height: { ideal: big ? 1080 : 960 } }
     }).then(function (st) {
       if (!CAM.resolve) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
       CAM.stream = st;
       var v = $('camVideo');
       v.srcObject = st;
       v.play().catch(function () {});
+      tuneCamera(st);
       if (mode === 'scan') startScanLoop();
     }).catch(function () {
       CAM.failed = true;                // next time go straight to the phone camera
@@ -2620,6 +2631,7 @@ function closeCamera(result) {
 }
 
 function capturePhoto() {
+  if (CAM.mode === 'scan') { captureScan(); return; }
   var v = $('camVideo');
   if (!v.videoWidth) { toast('Camera is starting…'); return; }
   var max = 1280;
@@ -2642,87 +2654,222 @@ function cleanCode(raw) {
 }
 function validCode(code) { return BARCODE_PATTERN.test(code); }
 
-/* camera keeps reading; a code is accepted only after the SAME valid value
-   is read twice in a row, then staff confirm it */
-function startScanLoop() {
-  var v = $('camVideo');
-  var last = '', hits = 0, bad = 0;
+/* HYBB sticker format, e.g. CH-CMP01CHN10-005
+   (item letters - place letters+digits - 3-digit number).
+   Stickers are Code 39 (no check digit), so a digit can be misread:
+   2 identical reads are needed, then staff compare with the printed text. */
+var HYBB_STICKER = /^[A-Z]{1,5}\d{0,2}-[A-Z]{2,5}\d{1,3}[A-Z]{2,5}\d{1,3}-\d{3}$/;
+function isHybbSticker(code) { return HYBB_STICKER.test(code); }
 
-  var known = store.get('kap_bc_format');     // sticker type learned from confirmed scans
+/* =========================================
+   FAST SCANNER
+   - reads only the middle band (inside the green box) → small image, fast
+   - only common sticker types (or the one type learned from your stickers)
+   - same code twice in a row → shown for confirmation
+   - 📸 Capture: tap once, lower the phone; the photo is read carefully
+========================================= */
 
-  /* list = [{ v: text, f: format }] */
-  function onRead(list) {
-    if (!CAM.resolve || CAM.paused) return;
-    var reads = list.map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; })
-      .filter(function (x) { return x.v; });
-    var good = reads.filter(function (x) { return validCode(x.v) && (!known || !x.f || x.f === known); });
-    if (!good.length) {
-      if (reads.length && ++bad % 4 === 0) $('camHint').textContent = 'Not clear yet – hold steady, closer, with good light.';
-      hits = 0; last = '';
-      return;
-    }
-    var r = good[0];
-    if (r.v === last) hits++; else { last = r.v; hits = 1; }
-    $('camHint').textContent = 'Reading… hold still';
-    if (hits >= SCAN_MATCHES) { CAM.paused = true; showScanConfirm(r.v, r.f); }
-  }
+var SCAN_MATCHES = 3;   // codes NOT in the HYBB sticker format must be read this many times in a row
+var SCAN_FORMATS = ['code_39', 'code_128', 'code_93', 'ean_13', 'ean_8', 'upc_a', 'itf', 'qr_code', 'data_matrix'];
 
-  var det = null;
-  if ('BarcodeDetector' in window) { try { det = new BarcodeDetector(); } catch (e) { det = null; } }
-  if (det) {
-    CAM.timer = setInterval(function () {
-      if (!v.videoWidth || CAM.busy || CAM.paused) return;
-      CAM.busy = true;
-      det.detect(v).then(function (r) {
-        CAM.busy = false;
-        // biggest barcode first (the sticker in front, not one in the background)
-        r = (r || []).slice().sort(function (x, y) {
-          var ax = x.boundingBox ? x.boundingBox.width * x.boundingBox.height : 0;
-          var ay = y.boundingBox ? y.boundingBox.width * y.boundingBox.height : 0;
-          return ay - ax;
-        });
-        onRead(r.map(function (x) { return { v: x.rawValue, f: x.format }; }));
-      }).catch(function () { CAM.busy = false; });
-    }, 250);
-    return;
-  }
-
-  loadZXing().then(function () {
-    if (!CAM.stream) return;
-    var hints = new Map();
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    var reader = new ZXing.MultiFormatReader();
-    reader.setHints(hints);
-    var c = document.createElement('canvas');
-    CAM.timer = setInterval(function () {
-      if (!v.videoWidth || CAM.busy || CAM.paused) return;
-      CAM.busy = true;
-      try {
-        var k = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight));
-        c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
-        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-        var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)));
-        var res = reader.decode(bmp);
-        onRead(res ? [{ v: res.getText(), f: zxFormat(res.getBarcodeFormat()) }] : []);
-      } catch (e) { /* nothing found in this frame */ }
-      CAM.busy = false;
-    }, 350);
-  }).catch(function () {
-    $('camHint').textContent = 'Scanner could not load. Close and type the number.';
-  });
+function scanFormats() {
+  var k = store.get('kap_bc_format');
+  return k ? [k] : SCAN_FORMATS;
 }
 
-var SCAN_MATCHES = 3;   // same code read this many times in a row before it is shown
+/* phone's own scanner, limited to our formats (built once per camera session) */
+function getDetector() {
+  if (!('BarcodeDetector' in window)) return Promise.resolve(null);
+  if (CAM.det) return CAM.det;
+  CAM.det = (BarcodeDetector.getSupportedFormats ? BarcodeDetector.getSupportedFormats() : Promise.resolve(SCAN_FORMATS))
+    .then(function (sup) {
+      var f = scanFormats().filter(function (x) { return sup.indexOf(x) > -1; });
+      return new BarcodeDetector(f.length ? { formats: f } : undefined);
+    }).catch(function () { try { return new BarcodeDetector(); } catch (e) { return null; } });
+  return CAM.det;
+}
 
-/* ZXing format number → same names the phone's own scanner uses */
+/* ZXing readers: fast (live) and thorough (capture) */
+function zxReaders() {
+  if (CAM.zx) return CAM.zx;
+  var fmts = scanFormats().map(function (f) { return ZXing.BarcodeFormat[f.toUpperCase()]; })
+    .filter(function (x) { return x !== undefined; });
+  function make(hard, only) {
+    var hints = new Map();
+    var use = only && only.length ? only : fmts;
+    if (use.length) hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, use);
+    if (hard) hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    var r = new ZXing.MultiFormatReader();
+    r.setHints(hints);
+    return r;
+  }
+  var oneD = fmts.filter(function (x) {
+    return [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX].indexOf(x) < 0;
+  });
+  CAM.zx = { fast: make(false, oneD), hard: make(true) };
+  return CAM.zx;
+}
+
 function zxFormat(f) {
   var names = ['aztec', 'codabar', 'code_39', 'code_93', 'code_128', 'data_matrix', 'ean_8', 'ean_13', 'itf',
                'maxicode', 'pdf417', 'qr_code', 'rss_14', 'rss_expanded', 'upc_a', 'upc_e', 'upc_ean_extension'];
   return names[f] || '';
 }
 
+function zxDecode(reader, canvas) {
+  try {
+    var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
+    var res = reader.decode(bmp);
+    return res ? [{ v: res.getText(), f: zxFormat(res.getBarcodeFormat()) }] : [];
+  } catch (e) { return []; }
+  finally { try { reader.reset(); } catch (e2) {} }
+}
+
+/* copy (part of) the video into a canvas; band = middle strip where the sticker is */
+function grabFrame(v, band, maxW, rotate) {
+  var W = v.videoWidth, H = v.videoHeight;
+  var x = band ? W * 0.06 : 0, y = band ? H * 0.28 : 0;
+  var w = band ? W * 0.88 : W, h = band ? H * 0.44 : H;
+  var k = Math.min(1, maxW / w);
+  var c = document.createElement('canvas');
+  var cw = Math.round(w * k), ch = Math.round(h * k);
+  var ctx = c.getContext('2d');
+  if (rotate) {
+    c.width = ch; c.height = cw;
+    ctx.translate(ch, 0); ctx.rotate(Math.PI / 2);
+  } else {
+    c.width = cw; c.height = ch;
+  }
+  ctx.drawImage(v, x, y, w, h, 0, 0, cw, ch);
+  return c;
+}
+
+function biggestFirst(list) {
+  return (list || []).slice().sort(function (a, b) {
+    var aa = a.boundingBox ? a.boundingBox.width * a.boundingBox.height : 0;
+    var bb = b.boundingBox ? b.boundingBox.width * b.boundingBox.height : 0;
+    return bb - aa;
+  }).map(function (x) { return { v: x.rawValue, f: x.format }; });
+}
+
+function startScanLoop() {
+  var v = $('camVideo');
+  var last = '', hits = 0, bad = 0;
+  var known = store.get('kap_bc_format');
+  var session = CAM.session = (CAM.session || 0) + 1;
+
+  function onRead(list) {
+    var reads = list.map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; }).filter(function (x) { return x.v; });
+    var good = reads.filter(function (x) { return validCode(x.v) && (!known || !x.f || x.f === known); });
+    if (!good.length) {
+      if (reads.length && ++bad % 4 === 0) $('camHint').textContent = 'Not clear yet – move a little closer, or tap 📸 Capture.';
+      hits = 0; last = '';
+      return;
+    }
+    var r = good.filter(function (x) { return isHybbSticker(x.v); })[0] || good[0];
+    if (r.v === last) hits++; else { last = r.v; hits = 1; }
+    var need = isHybbSticker(r.v) ? 2 : SCAN_MATCHES;   // HYBB format: 2 same reads (~0.2 s); other codes: 3
+    if (hits >= need) { CAM.paused = true; showScanConfirm(r.v, r.f); }
+  }
+
+  function alive() { return CAM.stream && CAM.resolve && CAM.session === session; }
+
+  getDetector().then(function (det) {
+    if (det) {
+      (function tick() {
+        if (!alive()) return;
+        if (CAM.paused || !v.videoWidth) { setTimeout(tick, 120); return; }
+        det.detect(grabFrame(v, true, 1700)).then(function (r) {
+          if (alive() && !CAM.paused) onRead(biggestFirst(r));
+          setTimeout(tick, 60);
+        }).catch(function () { setTimeout(tick, 150); });
+      })();
+      return;
+    }
+    loadZXing().then(function () {
+      var zx = zxReaders();
+      (function tick() {
+        if (!alive()) return;
+        if (!CAM.paused && v.videoWidth) onRead(zxDecode(zx.fast, grabFrame(v, true, 1400)));
+        setTimeout(tick, 60);
+      })();
+    }).catch(function () {
+      $('camHint').textContent = 'Scanner could not load. Close and type the number.';
+    });
+  });
+}
+
+/* 📸 Capture in scan mode: read one still photo carefully */
+function captureScan() {
+  var v = $('camVideo');
+  if (!v.videoWidth) { toast('Camera is starting…'); return; }
+  CAM.paused = true;
+  v.pause();
+  $('camHint').textContent = 'Reading the photo…';
+  var shots = [grabFrame(v, true, 1900), grabFrame(v, false, 1920), grabFrame(v, true, 1900, true)];
+  var known = store.get('kap_bc_format');
+
+  function finish(found) {
+    var good = found.map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; })
+      .filter(function (x) { return validCode(x.v) && (!known || !x.f || x.f === known); });
+    good.sort(function (a, b) { return isHybbSticker(b.v) - isHybbSticker(a.v); });
+    if (good.length) { showScanConfirm(good[0].v, good[0].f); return; }
+    $('camHint').textContent = 'Could not read it. Move closer so the sticker fills the green box, then tap 📸 again – or type the number.';
+    v.play().catch(function () {});
+    CAM.paused = false;
+  }
+
+  getDetector().then(function (det) {
+    if (det) {
+      var i = 0;
+      (function next() {
+        if (i >= shots.length) { finish([]); return; }
+        det.detect(shots[i++]).then(function (r) {
+          var list = biggestFirst(r);
+          if (list.length) finish(list); else next();
+        }).catch(next);
+      })();
+      return;
+    }
+    loadZXing().then(function () {
+      var zx = zxReaders();
+      for (var i = 0; i < shots.length; i++) {
+        var r = zxDecode(zx.hard, shots[i]);
+        if (r.length) { finish(r); return; }
+      }
+      finish([]);
+    }).catch(function () { finish([]); });
+  });
+}
+
+/* keep focusing; offer the torch when the phone has one */
+function tuneCamera(stream) {
+  var track = stream.getVideoTracks()[0];
+  var tb = $('camTorch');
+  tb.classList.add('hide');
+  if (!track || !track.getCapabilities) return;
+  var caps = {};
+  try { caps = track.getCapabilities() || {}; } catch (e) { caps = {}; }
+  if (caps.focusMode && caps.focusMode.indexOf('continuous') > -1) {
+    track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+  }
+  if (caps.torch) {
+    var on = false;
+    tb.classList.remove('hide');
+    tb.textContent = '🔦 Light';
+    tb.onclick = function () {
+      on = !on;
+      track.applyConstraints({ advanced: [{ torch: on }] }).catch(function () {});
+      tb.textContent = on ? '🔦 Light off' : '🔦 Light';
+    };
+  }
+}
+
 function showScanConfirm(code, format) {
   $('camCode').textContent = code;
+  $('camConfirm').querySelector('.cc-p').innerHTML = isHybbSticker(code)
+    ? 'Check it matches the number printed under the bars.'
+    : '<b style="color:#b45309">⚠ Not the usual HYBB format (like CH-CMP01CHN10-005).</b> Use it only if it matches the sticker exactly.';
   $('camConfirm').classList.remove('hide');
   $('camHint').textContent = '';
   $('camUse').onclick = function () {
@@ -2731,7 +2878,8 @@ function showScanConfirm(code, format) {
   };
   $('camAgain').onclick = function () {
     $('camConfirm').classList.add('hide');
-    $('camHint').textContent = 'Point at the barcode sticker. It reads by itself.';
+    $('camHint').textContent = 'Fit the sticker in the green box – it reads by itself.';
+    $('camVideo').play().catch(function () {});
     CAM.paused = false;
     startScanLoop();
   };
