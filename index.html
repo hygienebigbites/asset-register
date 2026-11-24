@@ -354,6 +354,18 @@
     .gbtns .btn { flex: 1; }
 
     .row.next { box-shadow: inset 4px 0 0 var(--ink); }
+
+    .saved-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--okbg); border: 1px solid #86efac; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    .saved-head b { display: block; color: var(--ok); font-size: 15px; }
+    .saved-head span { font-size: 12.5px; color: #166534; }
+    .saved-head .btn { flex: none; }
+    .saved-grp { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 10px; }
+    .saved-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 14px; }
+    .saved-row .th { width: 40px; height: 32px; }
+    .saved-row span { flex: 1; min-width: 0; }
+    .saved-row em { font-style: normal; font-size: 11.5px; color: var(--ok); }
+    .saved-row b { font-size: 16px; min-width: 26px; text-align: right; }
+    .saved-none { padding: 8px 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); line-height: 1.45; }
     .zero-box { background: var(--warnbg); border: 1px solid #fcd34d; border-radius: 12px; padding: 10px; margin-bottom: 12px; }
     .zero-h { font-size: 13px; color: #78350f; line-height: 1.4; margin-bottom: 8px; }
     .zero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 26vh; overflow-y: auto; }
@@ -567,6 +579,8 @@ var S = {
   registered: {},    // units here now, per item (server)
   away: {},          // units of this outlet away for repair (server)
   recount: {},       // items the manager asked to recount (server)
+  editing: false,    // staff tapped "Edit count" on a saved count
+  lastUpdate: null,  // {by, on} of the last saved count
   loading: false,
   tab: 'count',
   drafts: []         // paused groups for this outlet
@@ -999,7 +1013,7 @@ function start() {
 function loadOutlet() {
 
   S.outlet = $('outlet').value;
-  S.saved = {}; S.registered = {}; S.away = {}; S.recount = {}; S.drafts = [];
+  S.saved = {}; S.registered = {}; S.away = {}; S.recount = {}; S.drafts = []; S.editing = false; S.lastUpdate = null;
 
   var local = S.outlet ? store.get('kap_counts_' + S.outlet) : '';
   S.counts = local ? JSON.parse(local) : {};
@@ -1039,6 +1053,7 @@ function loadOutlet() {
     S.registered = r.registered || {};
     S.away = r.away || {};
     S.recount = r.recount || {};
+    S.lastUpdate = r.lastUpdate || null;
 
     // no unsaved local count → start from the saved one
     if (!local) S.counts = Object.assign({}, S.saved);
@@ -1153,12 +1168,13 @@ function totals() {
 }
 
 function countDirty() {
-  var anySaved = CONFIG.catalog.some(function (it) { return n(S.saved[it.id]) > 0; });
   if (Object.keys(S.recount || {}).length) return true;          // manager asked to recount
-  return CONFIG.catalog.some(function (it) {
-    // differs, or the outlet saved before but this item's 0 was never confirmed
-    return n(S.counts[it.id]) !== n(S.saved[it.id]) || (anySaved && S.saved[it.id] === undefined);
-  });
+  return CONFIG.catalog.some(function (it) { return n(S.counts[it.id]) !== n(S.saved[it.id]); });
+}
+
+/* a saved count is shown read-only until staff tap "Edit count" */
+function countLocked() {
+  return totals().saved > 0 && !S.editing && !countDirty();
 }
 
 function nextPending() {
@@ -1183,8 +1199,10 @@ function renderBottom() {
     var dirty = countDirty();
     info.innerHTML = '<b>' + t.counted + ' items counted</b>' +
       (dirty ? '<span class="dot"></span>Not saved yet' : (t.saved ? '✓ Saved' : 'Tap + on each item'));
-    btn.textContent = dirty || !t.saved ? 'Save Count →' : 'Go to Register →';
-    btn.onclick = dirty || !t.saved ? saveCount : function () { showTab('reg'); };
+    btn.textContent = dirty || !t.saved ? 'Save Count →' : S.editing ? 'Done – no changes' : 'Go to Register →';
+    btn.onclick = dirty || !t.saved ? saveCount
+      : S.editing ? function () { S.editing = false; renderAll(); }
+      : function () { showTab('reg'); };
     btn.disabled = S.loading || (!t.counted && !t.saved);
     return;
 
@@ -1448,6 +1466,15 @@ function renderCount() {
   var wrap = $('countGroups');
   wrap.innerHTML = '';
 
+  var locked = countLocked();
+  $('jump').classList.toggle('hide', locked);
+  $('countTip').classList.toggle('hide', locked);
+  if (locked) { renderSavedCount(wrap); return; }
+
+  if (S.editing && totals().saved > 0) {
+    wrap.appendChild(el('div', 'note', '<b>✏️ Editing the saved count.</b> Change only what is wrong, then tap <b>Save Count</b>.'));
+  }
+
   var rc = Object.keys(S.recount || {}).filter(function (c) { return ITEMS[c]; });
   if (rc.length) {
     wrap.appendChild(el('div', 'note', '<b>↻ Your manager asked you to recount:</b> ' +
@@ -1475,6 +1502,47 @@ function renderCount() {
 
   });
 
+}
+
+/* read-only summary of a saved count */
+function renderSavedCount(wrap) {
+
+  var t = totals();
+  var head = el('div', 'saved-head');
+  var who = S.lastUpdate ? 'Saved ' + esc(S.lastUpdate.on) + ' by ' + esc(S.lastUpdate.by) : 'Saved';
+  head.innerHTML = '<div><b>✓ Count saved</b><span>' + who + ' · ' + t.saved + ' items</span></div>';
+  var edit = el('button', 'btn sec sm', '✏️ Edit count');
+  edit.type = 'button';
+  edit.onclick = function () { S.editing = true; renderAll(); window.scrollTo({ top: 0 }); };
+  head.appendChild(edit);
+  wrap.appendChild(head);
+
+  var unconfirmed = CONFIG.catalog.filter(function (it) { return S.saved[it.id] === undefined; });
+  if (unconfirmed.length && unconfirmed.length < CONFIG.catalog.length) {
+    wrap.appendChild(el('div', 'note', unconfirmed.length + ' item' + (unconfirmed.length > 1 ? 's were' : ' was') +
+      ' not confirmed as 0 yet. If your manager asks, tap <b>Edit count</b> and Save once more.'));
+  }
+
+  CONFIG.groups.forEach(function (g) {
+    var items = CONFIG.catalog.filter(function (i) { return i.group === g; });
+    var have = items.filter(function (i) { return n(S.saved[i.id]) > 0; });
+    var none = items.filter(function (i) { return !n(S.saved[i.id]); });
+    var box = el('div', 'saved-grp');
+    var sum = have.reduce(function (a, i) { return a + n(S.saved[i.id]); }, 0);
+    box.appendChild(el('div', 'lh', esc(g) + (sum ? ' · ' + sum : '')));
+    have.forEach(function (it) {
+      var reg = have_(it.id);
+      box.appendChild(el('div', 'saved-row',
+        '<div class="th">' + imgHtml(it) + '</div><span>' + esc(nameOf(it)) + '</span>' +
+        (reg ? '<em>' + reg + ' registered</em>' : '') + '<b>' + n(S.saved[it.id]) + '</b>'));
+    });
+    if (none.length) {
+      box.appendChild(el('div', 'saved-none', '<b>0:</b> ' + none.map(function (i) { return esc(nameOf(i)); }).join(', ')));
+    }
+    wrap.appendChild(box);
+  });
+
+  function have_(code) { return have(code); }
 }
 
 function countCard(it) {
@@ -1569,6 +1637,8 @@ async function saveCount() {
     if (!r || !r.success) throw new Error((r && r.message) || 'Unable to save.');
     Object.keys(changed).forEach(function (c) { S.saved[c] = changed[c]; });
     S.recount = {};
+    S.editing = false;
+    S.lastUpdate = { by: S.name, on: new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' }) };
     store.del('kap_counts_' + S.outlet);
     toast('✓ Count saved. Now register each item.');
     renderAll();
