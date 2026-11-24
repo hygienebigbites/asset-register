@@ -553,7 +553,7 @@
   <div class="cam-confirm hide" id="camConfirm">
     <div class="cc-l">Barcode read</div>
     <div class="cc-code" id="camCode"></div>
-    <div class="cc-p">Check it matches the number printed on the sticker.</div>
+    <div class="cc-p">Check every letter and number matches the sticker (0 zero vs O letter). Wrong? Tap Scan again or type it.</div>
     <div class="cc-b">
       <button type="button" class="btn" id="camUse">✓ Use this</button>
       <button type="button" class="btn sec" id="camAgain">↻ Scan again</button>
@@ -949,7 +949,28 @@ function draftHasData(d) {
    START
 ========================================= */
 
+/* =========================================
+   APP VERSION — staff get "Update" when a newer index.html is live
+========================================= */
+var APP_VERSION = '2026-11-24.2';
+
+function checkForUpdate() {
+  if (!/^https?:/.test(location.protocol)) return;
+  fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+    var m = t.match(/var APP_VERSION = '([^']+)'/);
+    if (!m || m[1] === APP_VERSION || $('updBar')) return;
+    var bar = el('div', '', '🔄 A new version of the app is available. <button type="button">Update now</button>');
+    bar.id = 'updBar';
+    bar.style.cssText = 'position:fixed;left:10px;right:10px;top:10px;z-index:99;background:#1e40af;color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+    bar.querySelector('button').style.cssText = 'background:#fff;color:#1e40af;border:none;border-radius:8px;padding:8px 12px;font-weight:bold';
+    bar.querySelector('button').onclick = function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); };
+    document.body.appendChild(bar);
+  }).catch(function () {});
+}
+
 window.onload = function () {
+  setTimeout(checkForUpdate, 3000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkForUpdate(); });
 
   // Start immediately with the built-in item list (or the last one from the server).
   var cfg = BUILTIN_CONFIG;
@@ -2627,17 +2648,23 @@ function startScanLoop() {
   var v = $('camVideo');
   var last = '', hits = 0, bad = 0;
 
+  var known = store.get('kap_bc_format');     // sticker type learned from confirmed scans
+
+  /* list = [{ v: text, f: format }] */
   function onRead(list) {
     if (!CAM.resolve || CAM.paused) return;
-    var codes = list.map(cleanCode).filter(Boolean);
-    var good = codes.filter(validCode);
+    var reads = list.map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; })
+      .filter(function (x) { return x.v; });
+    var good = reads.filter(function (x) { return validCode(x.v) && (!known || !x.f || x.f === known); });
     if (!good.length) {
-      if (codes.length && ++bad % 4 === 0) $('camHint').textContent = 'Not clear yet – hold steady, closer, with good light.';
+      if (reads.length && ++bad % 4 === 0) $('camHint').textContent = 'Not clear yet – hold steady, closer, with good light.';
+      hits = 0; last = '';
       return;
     }
-    var code = good[0];
-    if (code === last) hits++; else { last = code; hits = 1; }
-    if (hits >= 2) { CAM.paused = true; showScanConfirm(code); }
+    var r = good[0];
+    if (r.v === last) hits++; else { last = r.v; hits = 1; }
+    $('camHint').textContent = 'Reading… hold still';
+    if (hits >= SCAN_MATCHES) { CAM.paused = true; showScanConfirm(r.v, r.f); }
   }
 
   var det = null;
@@ -2654,7 +2681,7 @@ function startScanLoop() {
           var ay = y.boundingBox ? y.boundingBox.width * y.boundingBox.height : 0;
           return ay - ax;
         });
-        onRead(r.map(function (x) { return x.rawValue; }));
+        onRead(r.map(function (x) { return { v: x.rawValue, f: x.format }; }));
       }).catch(function () { CAM.busy = false; });
     }, 250);
     return;
@@ -2676,7 +2703,7 @@ function startScanLoop() {
         c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
         var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)));
         var res = reader.decode(bmp);
-        onRead(res ? [res.getText()] : []);
+        onRead(res ? [{ v: res.getText(), f: zxFormat(res.getBarcodeFormat()) }] : []);
       } catch (e) { /* nothing found in this frame */ }
       CAM.busy = false;
     }, 350);
@@ -2685,11 +2712,23 @@ function startScanLoop() {
   });
 }
 
-function showScanConfirm(code) {
+var SCAN_MATCHES = 3;   // same code read this many times in a row before it is shown
+
+/* ZXing format number → same names the phone's own scanner uses */
+function zxFormat(f) {
+  var names = ['aztec', 'codabar', 'code_39', 'code_93', 'code_128', 'data_matrix', 'ean_8', 'ean_13', 'itf',
+               'maxicode', 'pdf417', 'qr_code', 'rss_14', 'rss_expanded', 'upc_a', 'upc_e', 'upc_ean_extension'];
+  return names[f] || '';
+}
+
+function showScanConfirm(code, format) {
   $('camCode').textContent = code;
   $('camConfirm').classList.remove('hide');
   $('camHint').textContent = '';
-  $('camUse').onclick = function () { $('camConfirm').classList.add('hide'); CAM.paused = false; closeCamera(code); };
+  $('camUse').onclick = function () {
+    if (format) store.set('kap_bc_format', format);   // only read this sticker type from now on
+    $('camConfirm').classList.add('hide'); CAM.paused = false; closeCamera(code);
+  };
   $('camAgain').onclick = function () {
     $('camConfirm').classList.add('hide');
     $('camHint').textContent = 'Point at the barcode sticker. It reads by itself.';
