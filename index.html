@@ -118,6 +118,16 @@
       position: relative;
     }
     .cc.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
+    .cc.saved { background: #f0fdf4; border-color: #22c55e; box-shadow: 0 0 0 1px #22c55e inset; }
+    .cc.saved.none { background: #f7fdf9; border-color: #86efac; box-shadow: none; }
+    .cc.saved .cimg { background: #fff; }
+    .ctick { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: #16a34a; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 1; }
+    .cval { text-align: center; font-size: 22px; font-weight: bold; color: #166534; line-height: 1.1; }
+    .cval small { font-size: 11px; font-weight: normal; color: #4d7c0f; }
+    .cc.saved.none .cval { color: #4b5563; font-size: 18px; }
+    .cedit { margin-top: 6px; border: 1px solid #86efac; background: #fff; color: #166534; border-radius: 8px; height: 30px; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+    .cc.chg { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b inset; background: #fffbeb; }
+    .chgtag { background: #fef3c7 !important; color: #92400e !important; }
     .cimg {
       height: 64px; border-radius: 8px; background: #fff;
       display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -359,6 +369,10 @@
     .saved-head b { display: block; color: var(--ok); font-size: 15px; }
     .saved-head span { font-size: 12.5px; color: #166534; }
     .saved-head .btn { flex: none; }
+    .saved-head .hl { display: inline; font-size: 12.5px; color: #92400e; }
+    .saved-head .hl.ok { color: #166534; }
+    .saved-head.pending { background: #fffbeb; border-color: #fcd34d; }
+    .saved-head.pending > div > b { color: #92400e; }
     .saved-grp { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 10px; }
     .saved-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 14px; }
     .saved-row .th { width: 40px; height: 32px; }
@@ -579,7 +593,7 @@ var S = {
   registered: {},    // units here now, per item (server)
   away: {},          // units of this outlet away for repair (server)
   recount: {},       // items the manager asked to recount (server)
-  editing: false,    // staff tapped "Edit count" on a saved count
+  unlocked: {},      // saved items opened with ✏️ Edit
   lastUpdate: null,  // {by, on} of the last saved count
   loading: false,
   tab: 'count',
@@ -1013,7 +1027,7 @@ function start() {
 function loadOutlet() {
 
   S.outlet = $('outlet').value;
-  S.saved = {}; S.registered = {}; S.away = {}; S.recount = {}; S.drafts = []; S.editing = false; S.lastUpdate = null;
+  S.saved = {}; S.registered = {}; S.away = {}; S.recount = {}; S.drafts = []; S.unlocked = {}; S.lastUpdate = null;
 
   var local = S.outlet ? store.get('kap_counts_' + S.outlet) : '';
   S.counts = local ? JSON.parse(local) : {};
@@ -1167,14 +1181,36 @@ function totals() {
   return { counted: counted, saved: saved, reg: reg };
 }
 
+function anySaved() {
+  return CONFIG.catalog.some(function (it) { return S.saved[it.id] !== undefined; });
+}
+
+/* saved number of an item; once an outlet has saved, items not recorded count as 0 */
+function savedVal(id) {
+  if (S.saved[id] !== undefined) return n(S.saved[id]);
+  return anySaved() ? 0 : undefined;
+}
+
 function countDirty() {
   if (Object.keys(S.recount || {}).length) return true;          // manager asked to recount
   return CONFIG.catalog.some(function (it) { return n(S.counts[it.id]) !== n(S.saved[it.id]); });
 }
 
-/* a saved count is shown read-only until staff tap "Edit count" */
-function countLocked() {
-  return totals().saved > 0 && !S.editing && !countDirty();
+function paintSavedHead() {
+  var head = $('savedHead');
+  if (!head) return;
+  var who = S.lastUpdate ? 'Saved ' + esc(S.lastUpdate.on) + ' by ' + esc(S.lastUpdate.by) : 'Saved';
+  var changedN = CONFIG.catalog.filter(function (it) { return n(S.counts[it.id]) !== n(savedVal(it.id)); }).length;
+  head.className = 'saved-head' + (changedN ? ' pending' : '');
+  head.innerHTML = '<div><b>' + (changedN ? '✏️ Count changed' : '✓ Count saved') + '</b><span>' + who + '.<br>' +
+    (changedN ? '<b class="hl">' + changedN + ' change' + (changedN > 1 ? 's' : '') + ' not saved yet – tap Save Count.</b>'
+              : 'Green items are saved. Tap <b class="hl ok">✏️ Edit</b> on an item to change it.') + '</span></div>';
+}
+
+/* saved item shown green with its number; ✏️ Edit opens + / − */
+function isSavedCard(id) {
+  var sv = savedVal(id);
+  return sv !== undefined && !S.unlocked[id] && !(S.recount && S.recount[id]) && n(S.counts[id]) === sv;
 }
 
 function nextPending() {
@@ -1199,9 +1235,10 @@ function renderBottom() {
     var dirty = countDirty();
     info.innerHTML = '<b>' + t.counted + ' items counted</b>' +
       (dirty ? '<span class="dot"></span>Not saved yet' : (t.saved ? '✓ Saved' : 'Tap + on each item'));
-    btn.textContent = dirty || !t.saved ? 'Save Count →' : S.editing ? 'Done – no changes' : 'Go to Register →';
+    var opened = Object.keys(S.unlocked).length > 0;
+    btn.textContent = dirty || !t.saved ? 'Save Count →' : opened ? 'Done – no changes' : 'Go to Register →';
     btn.onclick = dirty || !t.saved ? saveCount
-      : S.editing ? function () { S.editing = false; renderAll(); }
+      : opened ? function () { S.unlocked = {}; renderAll(); }
       : function () { showTab('reg'); };
     btn.disabled = S.loading || (!t.counted && !t.saved);
     return;
@@ -1466,13 +1503,13 @@ function renderCount() {
   var wrap = $('countGroups');
   wrap.innerHTML = '';
 
-  var locked = countLocked();
-  $('jump').classList.toggle('hide', locked);
-  $('countTip').classList.toggle('hide', locked);
-  if (locked) { renderSavedCount(wrap); return; }
-
-  if (S.editing && totals().saved > 0) {
-    wrap.appendChild(el('div', 'note', '<b>✏️ Editing the saved count.</b> Change only what is wrong, then tap <b>Save Count</b>.'));
+  var saved = anySaved();
+  $('countTip').classList.toggle('hide', saved);
+  if (saved) {
+    var head = el('div', 'saved-head');
+    head.id = 'savedHead';
+    wrap.appendChild(head);
+    paintSavedHead();
   }
 
   var rc = Object.keys(S.recount || {}).filter(function (c) { return ITEMS[c]; });
@@ -1504,58 +1541,37 @@ function renderCount() {
 
 }
 
-/* read-only summary of a saved count */
-function renderSavedCount(wrap) {
-
-  var t = totals();
-  var head = el('div', 'saved-head');
-  var who = S.lastUpdate ? 'Saved ' + esc(S.lastUpdate.on) + ' by ' + esc(S.lastUpdate.by) : 'Saved';
-  head.innerHTML = '<div><b>✓ Count saved</b><span>' + who + ' · ' + t.saved + ' items</span></div>';
-  var edit = el('button', 'btn sec sm', '✏️ Edit count');
-  edit.type = 'button';
-  edit.onclick = function () { S.editing = true; renderAll(); window.scrollTo({ top: 0 }); };
-  head.appendChild(edit);
-  wrap.appendChild(head);
-
-  var unconfirmed = CONFIG.catalog.filter(function (it) { return S.saved[it.id] === undefined; });
-  if (unconfirmed.length && unconfirmed.length < CONFIG.catalog.length) {
-    wrap.appendChild(el('div', 'note', unconfirmed.length + ' item' + (unconfirmed.length > 1 ? 's were' : ' was') +
-      ' not confirmed as 0 yet. If your manager asks, tap <b>Edit count</b> and Save once more.'));
-  }
-
-  CONFIG.groups.forEach(function (g) {
-    var items = CONFIG.catalog.filter(function (i) { return i.group === g; });
-    var have = items.filter(function (i) { return n(S.saved[i.id]) > 0; });
-    var none = items.filter(function (i) { return !n(S.saved[i.id]); });
-    var box = el('div', 'saved-grp');
-    var sum = have.reduce(function (a, i) { return a + n(S.saved[i.id]); }, 0);
-    box.appendChild(el('div', 'lh', esc(g) + (sum ? ' · ' + sum : '')));
-    have.forEach(function (it) {
-      var reg = have_(it.id);
-      box.appendChild(el('div', 'saved-row',
-        '<div class="th">' + imgHtml(it) + '</div><span>' + esc(nameOf(it)) + '</span>' +
-        (reg ? '<em>' + reg + ' registered</em>' : '') + '<b>' + n(S.saved[it.id]) + '</b>'));
-    });
-    if (none.length) {
-      box.appendChild(el('div', 'saved-none', '<b>0:</b> ' + none.map(function (i) { return esc(nameOf(i)); }).join(', ')));
-    }
-    wrap.appendChild(box);
-  });
-
-  function have_(code) { return have(code); }
-}
-
 function countCard(it) {
 
   var v = n(S.counts[it.id]);
   var reg = have(it.id);
 
   var rq = S.recount && S.recount[it.id];
-  var c = el('div', 'cc' + (v ? ' on' : ''));
+  var sv = savedVal(it.id);
+
+  // ---- saved: green, number only, ✏️ Edit ----
+  if (isSavedCard(it.id)) {
+    var g = el('div', 'cc saved' + (sv ? '' : ' none'));
+    g.innerHTML =
+      '<span class="ctick">✓</span>' +
+      (reg ? '<span class="creg">' + reg + ' reg</span>' : '') +
+      '<div class="cimg">' + imgHtml(it) + '</div>' +
+      '<div class="cname">' + esc(nameOf(it)) + '</div>' +
+      '<div class="cval">' + (sv ? sv : '0 <small>none</small>') + '</div>';
+    var ed = el('button', 'cedit', '✏️ Edit');
+    ed.type = 'button';
+    ed.onclick = function () { S.unlocked[it.id] = true; renderCount(); renderBottom(); };
+    g.appendChild(ed);
+    return g;
+  }
+
+  var changedNow = sv !== undefined && v !== sv;
+  var c = el('div', 'cc' + (v ? ' on' : '') + (changedNow ? ' chg' : ''));
   if (rq) c.style.boxShadow = '0 0 0 2px #2563eb inset';
   c.innerHTML =
     (rq ? '<span class="creg" style="left:4px;right:auto;background:#dbeafe;color:#1e40af">↻ Recount</span>' : '') +
-    (reg ? '<span class="creg">✓' + reg + '</span>' : '') +
+    (sv !== undefined && !rq ? '<span class="creg chgtag"' + (changedNow ? '' : ' style="display:none"') + '>was ' + sv + '</span>' : '') +
+    (reg && !changedNow ? '<span class="creg">✓' + reg + '</span>' : '') +
     '<div class="cimg">' + imgHtml(it) + '</div>' +
     '<div class="cname">' + esc(nameOf(it)) + '</div>';
 
@@ -1572,6 +1588,11 @@ function countCard(it) {
     S.counts[it.id] = x;
     if (!fromTyping) input.value = String(x);
     c.classList.toggle('on', x > 0);
+    var svx = savedVal(it.id);
+    c.classList.toggle('chg', svx !== undefined && x !== svx);
+    var tag = c.querySelector('.chgtag');
+    if (tag) tag.style.display = svx !== undefined && x !== svx ? '' : 'none';
+    paintSavedHead();
     store.set('kap_counts_' + S.outlet, JSON.stringify(S.counts));
     updateGroupTotals();
     renderBottom();
@@ -1637,7 +1658,7 @@ async function saveCount() {
     if (!r || !r.success) throw new Error((r && r.message) || 'Unable to save.');
     Object.keys(changed).forEach(function (c) { S.saved[c] = changed[c]; });
     S.recount = {};
-    S.editing = false;
+    S.unlocked = {};
     S.lastUpdate = { by: S.name, on: new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' }) };
     store.del('kap_counts_' + S.outlet);
     toast('✓ Count saved. Now register each item.');
