@@ -413,7 +413,8 @@
     .cam-view { position: relative; flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .cam-view video { width: 100%; height: 100%; object-fit: cover; }
     .cam-frame { position: absolute; inset: 8% 6%; border: 2px solid rgba(255,255,255,.7); border-radius: 14px; pointer-events: none; }
-    .cam-frame.scan { inset: 30% 7%; border-color: #22c55e; border-width: 3px; }
+    .cam-frame.scan { inset: 30% 3%; border-color: #22c55e; border-width: 3px; }
+    .cam-frame.scan::after { content: ''; position: absolute; left: 26%; right: 26%; top: -67%; bottom: -67%; border: 2px dashed rgba(34,197,94,.55); border-radius: 14px; pointer-events: none; }
     .cam-shot-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
     #camShotLbl { font-size: 12px; color: #e5e7eb; min-height: 14px; }
     .cam-shot.scanmode { border-color: #22c55e; }
@@ -665,8 +666,12 @@ var store = {
   del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
 };
 
+var SAVING = 0;   // requests in flight – the app never auto-updates while saving
+
 function callServer(action, data) {
   if (!APP.API_URL) return LocalAPI.call(action, data);
+  SAVING++;
+  var done = function (x) { SAVING = Math.max(0, SAVING - 1); return x; };
   return fetch(APP.API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // no CORS pre-flight
@@ -674,7 +679,7 @@ function callServer(action, data) {
   }).then(function (r) {
     if (!r.ok) throw new Error('Server error ' + r.status);
     return r.json();
-  });
+  }).then(done, function (e) { done(); throw e; });
 }
 
 /* units already accounted for = here now + away for repair */
@@ -954,26 +959,63 @@ function draftHasData(d) {
 ========================================= */
 
 /* =========================================
-   APP VERSION — staff get "Update" when a newer index.html is live
+   APP VERSION — when a newer index.html is live, the app updates ITSELF:
+   - at once when the app is opened
+   - mid-work only at a safe moment (not while saving, scanning or in a dialog)
+   - work in progress is kept (drafts and counts are stored on the phone)
 ========================================= */
-var APP_VERSION = '2026-11-24.4';
+var APP_VERSION = '2026-11-24.6';
+var UPDATE_TO = '';
+
+function versionNum(v) {   // '2026-11-24.5' -> comparable number
+  var m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})\.(\d+)$/);
+  return m ? ((+m[1] * 100 + +m[2]) * 100 + +m[3]) * 1000 + +m[4] : 0;
+}
+
+function safeToUpdate() {
+  return !SAVING && !CAM.resolve && !$('modal').classList.contains('open');
+}
+
+function applyUpdate() {
+  if (!UPDATE_TO) return;
+  if (!safeToUpdate()) { setTimeout(applyUpdate, 2000); return; }
+  // stop a reload loop if the web server is still handing out the old copy
+  var tried = {};
+  try { tried = JSON.parse(store.get('kap_upd_try') || '{}'); } catch (e) {}
+  if (tried.v === UPDATE_TO && Date.now() - tried.at < 120000) return;
+  store.set('kap_upd_try', JSON.stringify({ v: UPDATE_TO, at: Date.now() }));
+  store.set('kap_updated_from', APP_VERSION);
+  saveDraftNow();
+  setTimeout(function () {
+    location.replace(location.pathname + '?v=' + encodeURIComponent(UPDATE_TO) + location.hash);
+  }, 500);
+}
 
 function checkForUpdate() {
-  if (!/^https?:/.test(location.protocol)) return;
-  fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+  if (!/^https?:/.test(location.protocol) || UPDATE_TO) return;
+  fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
     var m = t.match(/var APP_VERSION = '([^']+)'/);
-    if (!m || m[1] === APP_VERSION || $('updBar')) return;
-    var bar = el('div', '', '🔄 A new version of the app is available. <button type="button">Update now</button>');
-    bar.id = 'updBar';
-    bar.style.cssText = 'position:fixed;left:10px;right:10px;top:10px;z-index:99;background:#1e40af;color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(0,0,0,.25)';
-    bar.querySelector('button').style.cssText = 'background:#fff;color:#1e40af;border:none;border-radius:8px;padding:8px 12px;font-weight:bold';
-    bar.querySelector('button').onclick = function () { location.replace(location.pathname + '?v=' + Date.now() + location.hash); };
-    document.body.appendChild(bar);
+    if (!m || versionNum(m[1]) <= versionNum(APP_VERSION)) return;   // same or older copy: nothing to do
+    UPDATE_TO = m[1];
+    applyUpdate();
   }).catch(function () {});
 }
 
+try { localStorage.removeItem('kap_bc_format'); } catch (e) {}   // older versions could learn the wrong type
+
+function afterUpdateNotice() {
+  var from = store.get('kap_updated_from');
+  if (!from || from === APP_VERSION) return;
+  store.del('kap_updated_from');
+  store.del('kap_upd_try');
+  setTimeout(function () { toast('✓ App updated to the latest version'); }, 800);
+  if (location.search) history.replaceState(null, '', location.pathname + location.hash);   // tidy address bar
+}
+
 window.onload = function () {
-  setTimeout(checkForUpdate, 3000);
+  afterUpdateNotice();
+  checkForUpdate();                                   // straight away when the app opens
+  setInterval(function () { if (!document.hidden) checkForUpdate(); }, 10 * 60 * 1000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) checkForUpdate(); });
 
   // Start immediately with the built-in item list (or the last one from the server).
@@ -1878,7 +1920,7 @@ async function openItem(itemId) {
 }
 
 function openDraft(d) {
-  if (!('BarcodeDetector' in window)) loadZXing().catch(function () {});   // scanner ready before the camera opens
+  loadZXing().catch(function () {});   // scanner ready before the camera opens
   G = d;
   G.showErr = {};
   store.set('kap_open', draftKey(d.outlet, d.itemId));   // reopen here if the page reloads
@@ -2589,7 +2631,7 @@ function openCamera(mode, title) {
     CAM.mode = mode; CAM.resolve = resolve;
     $('camTitle').textContent = title;
     $('camHint').textContent = mode === 'scan'
-      ? 'Hold the sticker straight so the bars fill the green box. It reads by itself – or tap 📸 Capture.'
+      ? 'Hold the phone a hand’s length away. Long sticker? Turn the phone sideways ↔ – it reads both ways.'
       : 'Keep the full item inside the frame, then tap the round button.';
     $('camShot').classList.remove('hide');
     $('camShot').classList.toggle('scanmode', mode === 'scan');
@@ -2619,7 +2661,7 @@ function openCamera(mode, title) {
 
 function closeCamera(result) {
   clearInterval(CAM.timer); CAM.timer = null;
-  CAM.paused = false;
+  CAM.paused = false; CAM.capturing = false; CAM.session = (CAM.session || 0) + 1;
   $('camConfirm').classList.add('hide');
   if (CAM.reader) { try { CAM.reader.reset(); } catch (e) {} CAM.reader = null; }
   if (CAM.stream) { CAM.stream.getTracks().forEach(function (t) { t.stop(); }); CAM.stream = null; }
@@ -2662,22 +2704,30 @@ var HYBB_STICKER = /^[A-Z]{1,5}\d{0,2}-[A-Z]{2,5}\d{1,3}[A-Z]{2,5}\d{1,3}-\d{3}$
 function isHybbSticker(code) { return HYBB_STICKER.test(code); }
 
 /* =========================================
-   FAST SCANNER
-   - reads only the middle band (inside the green box) → small image, fast
-   - only common sticker types (or the one type learned from your stickers)
-   - same code twice in a row → shown for confirmation
-   - 📸 Capture: tap once, lower the phone; the photo is read carefully
+   SCANNER  (tested on simulated shaky / blurred / dim / tilted scans)
+   Why long stickers were slow: a 17-character Code 39 sticker is ~300 bars wide,
+   so held upright each thin bar gets only 1–2 camera pixels and blur wipes it out.
+   What this does:
+   - reads both ways: phone upright OR turned sideways (sideways = 2× more pixels per bar)
+   - "bar profile" reader: averages many rows down the bars (removes noise) and
+     sharpens (undoes blur) before decoding – about 4× more frames read
+   - votes: the same code read twice within 4 s (blurry frames in between don't reset it)
+   - zooms 2× on phones that allow it, so staff can hold the phone further away, where it focuses
+   - 📸 Capture: tap once – takes a full-resolution photo (when the phone allows)
+     plus the next second of video, and tries every method
 ========================================= */
 
-var SCAN_MATCHES = 3;   // codes NOT in the HYBB sticker format must be read this many times in a row
+var SCAN_MATCHES = 3;   // codes NOT in the HYBB format need this many reads
+var HYBB_MATCHES = 2;   // HYBB-format codes (CH-CMP01CHN10-005) need this many
+var VOTE_WINDOW = 4000; // ms
 var SCAN_FORMATS = ['code_39', 'code_128', 'code_93', 'ean_13', 'ean_8', 'upc_a', 'itf', 'qr_code', 'data_matrix'];
 
 function scanFormats() {
-  var k = store.get('kap_bc_format');
+  var k = store.get('kap_bc_format2');
   return k ? [k] : SCAN_FORMATS;
 }
 
-/* phone's own scanner, limited to our formats (built once per camera session) */
+/* phone's own scanner (Android), limited to our formats */
 function getDetector() {
   if (!('BarcodeDetector' in window)) return Promise.resolve(null);
   if (CAM.det) return CAM.det;
@@ -2689,11 +2739,14 @@ function getDetector() {
   return CAM.det;
 }
 
-/* ZXing readers: fast (live) and thorough (capture) */
+/* ZXing readers: fast = bar codes only (live), hard = everything, try harder (capture) */
 function zxReaders() {
   if (CAM.zx) return CAM.zx;
   var fmts = scanFormats().map(function (f) { return ZXing.BarcodeFormat[f.toUpperCase()]; })
     .filter(function (x) { return x !== undefined; });
+  var oneD = fmts.filter(function (x) {
+    return [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX].indexOf(x) < 0;
+  });
   function make(hard, only) {
     var hints = new Map();
     var use = only && only.length ? only : fmts;
@@ -2703,9 +2756,6 @@ function zxReaders() {
     r.setHints(hints);
     return r;
   }
-  var oneD = fmts.filter(function (x) {
-    return [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX].indexOf(x) < 0;
-  });
   CAM.zx = { fast: make(false, oneD), hard: make(true) };
   return CAM.zx;
 }
@@ -2716,32 +2766,90 @@ function zxFormat(f) {
   return names[f] || '';
 }
 
-function zxDecode(reader, canvas) {
+function zxDecode(reader, canvas, globalBin) {
   try {
-    var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
+    var src = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+    var bmp = new ZXing.BinaryBitmap(globalBin ? new ZXing.GlobalHistogramBinarizer(src) : new ZXing.HybridBinarizer(src));
     var res = reader.decode(bmp);
     return res ? [{ v: res.getText(), f: zxFormat(res.getBarcodeFormat()) }] : [];
   } catch (e) { return []; }
   finally { try { reader.reset(); } catch (e2) {} }
 }
 
-/* copy (part of) the video into a canvas; band = middle strip where the sticker is */
-function grabFrame(v, band, maxW, rotate) {
-  var W = v.videoWidth, H = v.videoHeight;
-  var x = band ? W * 0.06 : 0, y = band ? H * 0.28 : 0;
-  var w = band ? W * 0.88 : W, h = band ? H * 0.44 : H;
-  var k = Math.min(1, maxW / w);
-  var c = document.createElement('canvas');
-  var cw = Math.round(w * k), ch = Math.round(h * k);
-  var ctx = c.getContext('2d');
-  if (rotate) {
-    c.width = ch; c.height = cw;
-    ctx.translate(ch, 0); ctx.rotate(Math.PI / 2);
-  } else {
-    c.width = cw; c.height = ch;
+/* Cut the scan area out of a video frame / photo, turned so the bars stand upright.
+   vertical = phone held sideways (sticker runs top-to-bottom on screen).
+   band = false → whole picture. */
+function bandCanvas(src, sw, sh, vertical, maxLong, band) {
+  var x = 0, y = 0, w = sw, h = sh;
+  if (band !== false) {
+    if (vertical) { x = sw * 0.28; y = sh * 0.03; w = sw * 0.44; h = sh * 0.94; }
+    else          { x = sw * 0.03; y = sh * 0.30; w = sw * 0.94; h = sh * 0.40; }
   }
-  ctx.drawImage(v, x, y, w, h, 0, 0, cw, ch);
+  var long = vertical ? h : w;
+  var k = Math.min(1, maxLong / long);
+  var c = document.createElement('canvas');
+  var ctx = c.getContext('2d', { willReadFrequently: true });
+  if (vertical) {
+    c.width = Math.round(h * k); c.height = Math.round(w * k);
+    ctx.translate(c.width, 0); ctx.rotate(Math.PI / 2);
+    ctx.drawImage(src, x, y, w, h, 0, 0, c.height, c.width);
+  } else {
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    ctx.drawImage(src, x, y, w, h, 0, 0, c.width, c.height);
+  }
   return c;
+}
+
+function grabFrame(v, band, maxW, rotate) {   // kept for older callers
+  return bandCanvas(v, v.videoWidth, v.videoHeight, !!rotate, maxW, band);
+}
+
+/* "Bar profile" reader: average rows down the bars, sharpen, stretch contrast, decode.
+   Works far better than plain decoding on thin, slightly blurred bars. */
+var PROFILE_ROWS = [0.5, 0.42, 0.58, 0.34, 0.66];
+function profileDecode(canvas, reader, rowsList) {
+  var w = canvas.width, H = canvas.height;
+  if (w < 60 || H < 8) return [];
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+  var rows = Math.max(8, Math.min(28, Math.round(H * 0.08)));
+  var list = rowsList || PROFILE_ROWS;
+  for (var r = 0; r < list.length; r++) {
+    var y0 = Math.max(0, Math.min(H - rows, Math.round(H * list[r] - rows / 2)));
+    var d = ctx.getImageData(0, y0, w, rows).data;
+    var p = new Float32Array(w), x, y;
+    for (y = 0; y < rows; y++) {
+      var o = y * w * 4;
+      for (x = 0; x < w; x++) { var i = o + x * 4; p[x] += d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; }
+    }
+    // sharpen (unsharp mask, 5-px window)
+    var q = new Float32Array(w);
+    for (x = 0; x < w; x++) {
+      var s = 0, n = 0;
+      for (var k = -2; k <= 2; k++) { var j = x + k; if (j >= 0 && j < w) { s += p[j]; n++; } }
+      q[x] = (p[x] + 1.5 * (p[x] - s / n)) / rows;
+    }
+    // local contrast (min/max over ±30 px), drawn 2× wide, 2 px tall
+    var mn = new Float32Array(w), mx = new Float32Array(w);
+    for (x = 0; x < w; x++) {
+      var lo = 1e9, hi = -1e9;
+      for (var t = Math.max(0, x - 30); t < Math.min(w, x + 31); t++) { if (q[t] < lo) lo = q[t]; if (q[t] > hi) hi = q[t]; }
+      mn[x] = lo; mx[x] = hi;
+    }
+    var ow = w * 2, oc = document.createElement('canvas');
+    oc.width = ow; oc.height = 2;
+    var og = oc.getContext('2d', { willReadFrequently: true }), im = og.createImageData(ow, 2);
+    for (var X = 0; X < ow; X++) {
+      var fx = X / 2, xi = Math.min(w - 2, Math.floor(fx)), f = fx - xi;
+      var val = q[xi] * (1 - f) + q[xi + 1] * f;
+      var a = mn[xi], b = mx[xi];
+      var g = b - a < 8 ? 255 : Math.max(0, Math.min(255, (val - a) / (b - a) * 255));
+      for (y = 0; y < 2; y++) { var ii = (y * ow + X) * 4; im.data[ii] = im.data[ii + 1] = im.data[ii + 2] = g; im.data[ii + 3] = 255; }
+    }
+    og.putImageData(im, 0, 0);
+    var res = zxDecode(reader, oc, true);
+    if (res.length) return res;
+  }
+  return [];
 }
 
 function biggestFirst(list) {
@@ -2752,97 +2860,132 @@ function biggestFirst(list) {
   }).map(function (x) { return { v: x.rawValue, f: x.format }; });
 }
 
+/* clean reads → only valid codes, HYBB format first */
+function goodReads(list) {
+  var known = store.get('kap_bc_format2');
+  return (list || []).map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; })
+    .filter(function (x) { return x.v && validCode(x.v) && (!known || !x.f || x.f === known); })
+    .sort(function (a, b) { return isHybbSticker(b.v) - isHybbSticker(a.v); });
+}
+
+/* one pass over a frame with every cheap method; returns reads (may be empty) */
+function readFrame(det, src, sw, sh, step, maxLong) {
+  var portrait = sh > sw;
+  // which way to look this time: upright and (for upright frames) sideways, in turn
+  var vertical = portrait && step % 3 === 2;   // 2 upright looks, then 1 sideways look
+  var c = bandCanvas(src, sw, sh, vertical, maxLong);
+  var p = det ? det.detect(c).then(biggestFirst).catch(function () { return []; }) : Promise.resolve([]);
+  return p.then(function (found) {
+    if (found.length || !window.ZXing) return found;
+    var zx = zxReaders();
+    var r = step % 4 === 0 ? zxDecode(zx.fast, c, false) : [];          // plain reader copes with a tilted sticker
+    return r.length ? r : profileDecode(c, zx.fast, ROW_SETS[step % ROW_SETS.length]);
+  });
+}
+var ROW_SETS = [[0.5, 0.42, 0.58], [0.46, 0.54, 0.36], [0.5, 0.64, 0.4], [0.47, 0.53, 0.3], [0.5, 0.7, 0.44]];
+
 function startScanLoop() {
   var v = $('camVideo');
-  var last = '', hits = 0, bad = 0;
-  var known = store.get('kap_bc_format');
+  var votes = {};
   var session = CAM.session = (CAM.session || 0) + 1;
-
-  function onRead(list) {
-    var reads = list.map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; }).filter(function (x) { return x.v; });
-    var good = reads.filter(function (x) { return validCode(x.v) && (!known || !x.f || x.f === known); });
-    if (!good.length) {
-      if (reads.length && ++bad % 4 === 0) $('camHint').textContent = 'Not clear yet – move a little closer, or tap 📸 Capture.';
-      hits = 0; last = '';
-      return;
-    }
-    var r = good.filter(function (x) { return isHybbSticker(x.v); })[0] || good[0];
-    if (r.v === last) hits++; else { last = r.v; hits = 1; }
-    var need = isHybbSticker(r.v) ? 2 : SCAN_MATCHES;   // HYBB format: 2 same reads (~0.2 s); other codes: 3
-    if (hits >= need) { CAM.paused = true; showScanConfirm(r.v, r.f); }
-  }
+  var step = 0, t0 = Date.now(), tipShown = 0;
 
   function alive() { return CAM.stream && CAM.resolve && CAM.session === session; }
+  CAM.voteNow = function (list) { return alive() ? vote(list) : false; };
 
-  getDetector().then(function (det) {
-    if (det) {
-      (function tick() {
-        if (!alive()) return;
-        if (CAM.paused || !v.videoWidth) { setTimeout(tick, 120); return; }
-        det.detect(grabFrame(v, true, 1700)).then(function (r) {
-          if (alive() && !CAM.paused) onRead(biggestFirst(r));
-          setTimeout(tick, 60);
-        }).catch(function () { setTimeout(tick, 150); });
-      })();
-      return;
-    }
-    loadZXing().then(function () {
-      var zx = zxReaders();
-      (function tick() {
-        if (!alive()) return;
-        if (!CAM.paused && v.videoWidth) onRead(zxDecode(zx.fast, grabFrame(v, true, 1400)));
-        setTimeout(tick, 60);
-      })();
-    }).catch(function () {
-      $('camHint').textContent = 'Scanner could not load. Close and type the number.';
+  function vote(list) {
+    if (CAM.paused) return true;
+    var now = Date.now();
+    goodReads(list).forEach(function (r) {
+      var e = votes[r.v] = votes[r.v] || { t: [], f: r.f };
+      e.t.push(now);
     });
+    var best = null;
+    Object.keys(votes).forEach(function (code) {
+      var e = votes[code];
+      e.t = e.t.filter(function (t) { return now - t < VOTE_WINDOW; });
+      if (!e.t.length) { delete votes[code]; return; }
+      var need = CAM.capturing ? (isHybbSticker(code) ? 1 : 2) : (isHybbSticker(code) ? HYBB_MATCHES : SCAN_MATCHES);
+      if (e.t.length >= need && (!best || e.t.length > votes[best].t.length)) best = code;
+    });
+    if (best) { CAM.paused = true; CAM.capturing = false; showScanConfirm(best, votes[best].f); return true; }
+    if (CAM.capturing) return false;
+    if (Object.keys(votes).length) $('camHint').textContent = 'Got it once – hold still…';
+    // gentle tips while nothing is read
+    var waited = now - t0;
+    if (!Object.keys(votes).length && waited > 4000 && tipShown < 1) {
+      tipShown = 1; $('camHint').textContent = 'Tip: turn the phone sideways ↔ and hold it a hand’s length away.';
+    } else if (!Object.keys(votes).length && waited > 9000 && tipShown < 2) {
+      tipShown = 2; $('camHint').textContent = 'Still not read? Tap 📸 Capture, switch on 🔦 Light, or type the number.';
+    }
+  }
+
+  Promise.all([getDetector(), loadZXing().catch(function () {})]).then(function (r) {
+    var det = r[0];
+    if (!det && !window.ZXing) { $('camHint').textContent = 'Scanner could not load. Close and type the number.'; return; }
+    (function tick() {
+      if (!alive()) return;
+      if (CAM.paused || !v.videoWidth) { setTimeout(tick, 120); return; }
+      var tStart = performance.now();
+      readFrame(det, v, v.videoWidth, v.videoHeight, step++, 1700).then(function (list) {
+        CAM.stats = CAM.stats || { n: 0, ms: 0 }; CAM.stats.n++; CAM.stats.ms += performance.now() - tStart;
+        if (alive() && !CAM.paused) vote(list);
+        setTimeout(tick, 15);
+      }).catch(function () { setTimeout(tick, 150); });
+    })();
   });
 }
 
-/* 📸 Capture in scan mode: read one still photo carefully */
+/* 📸 Capture: for staff who can't hold still.
+   From the tap, ONE clean read is enough (a code already read once is accepted at once),
+   and a full-resolution photo is read too when the phone allows it. */
 function captureScan() {
   var v = $('camVideo');
   if (!v.videoWidth) { toast('Camera is starting…'); return; }
-  CAM.paused = true;
-  v.pause();
-  $('camHint').textContent = 'Reading the photo…';
-  var shots = [grabFrame(v, true, 1900), grabFrame(v, false, 1920), grabFrame(v, true, 1900, true)];
-  var known = store.get('kap_bc_format');
+  if (CAM.capturing) return;
+  CAM.capturing = true;
+  var session = CAM.session;
+  $('camHint').textContent = 'Reading… hold still a moment';
+  if (CAM.voteNow && CAM.voteNow([])) return;            // already read once before the tap
 
-  function finish(found) {
-    var good = found.map(function (x) { return { v: cleanCode(x.v), f: String(x.f || '') }; })
-      .filter(function (x) { return validCode(x.v) && (!known || !x.f || x.f === known); });
-    good.sort(function (a, b) { return isHybbSticker(b.v) - isHybbSticker(a.v); });
-    if (good.length) { showScanConfirm(good[0].v, good[0].f); return; }
-    $('camHint').textContent = 'Could not read it. Move closer so the sticker fills the green box, then tap 📸 again – or type the number.';
-    v.play().catch(function () {});
-    CAM.paused = false;
-  }
-
-  getDetector().then(function (det) {
-    if (det) {
-      var i = 0;
-      (function next() {
-        if (i >= shots.length) { finish([]); return; }
-        det.detect(shots[i++]).then(function (r) {
-          var list = biggestFirst(r);
-          if (list.length) finish(list); else next();
-        }).catch(next);
-      })();
-      return;
-    }
-    loadZXing().then(function () {
-      var zx = zxReaders();
-      for (var i = 0; i < shots.length; i++) {
-        var r = zxDecode(zx.hard, shots[i]);
-        if (r.length) { finish(r); return; }
-      }
-      finish([]);
-    }).catch(function () { finish([]); });
+  Promise.all([getDetector(), loadZXing().catch(function () {})]).then(function (r) {
+    var det = r[0];
+    var track = CAM.stream && CAM.stream.getVideoTracks()[0];
+    if (!(window.ImageCapture && track)) return;
+    return new ImageCapture(track).takePhoto()
+      .then(function (blob) { return createImageBitmap(blob); })
+      .then(function (bmp) {
+        var looks = bmp.height > bmp.width ? [false, true] : [false];
+        var found = [];
+        return looks.reduce(function (chain, vertical) {
+          return chain.then(function () {
+            if (found.length || !CAM.capturing || CAM.session !== session) return;
+            var c = bandCanvas(bmp, bmp.width, bmp.height, vertical, 2600);
+            return (det ? det.detect(c).then(biggestFirst).catch(function () { return []; }) : Promise.resolve([]))
+              .then(function (f) {
+                if (!goodReads(f).length && window.ZXing) {
+                  var zx = zxReaders();
+                  f = profileDecode(c, zx.fast, [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68]);
+                  if (!goodReads(f).length) f = zxDecode(zx.fast, c, false);
+                }
+                found = goodReads(f);
+              });
+          });
+        }, Promise.resolve()).then(function () {
+          if (bmp.close) bmp.close();
+          if (found.length && CAM.capturing && CAM.session === session && CAM.voteNow) CAM.voteNow([{ v: found[0].v, f: found[0].f }]);
+        });
+      }).catch(function () {});
   });
+
+  setTimeout(function () {
+    if (!CAM.capturing || CAM.session !== session) return;
+    CAM.capturing = false;
+    $('camHint').textContent = 'Could not read it. Turn the phone sideways ↔, keep a hand’s length away, tap 📸 again – or type the number.';
+  }, 5000);
 }
 
-/* keep focusing; offer the torch when the phone has one */
+/* keep focusing; zoom 2× when possible (staff hold further away = sharp); torch button */
 function tuneCamera(stream) {
   var track = stream.getVideoTracks()[0];
   var tb = $('camTorch');
@@ -2850,9 +2993,10 @@ function tuneCamera(stream) {
   if (!track || !track.getCapabilities) return;
   var caps = {};
   try { caps = track.getCapabilities() || {}; } catch (e) { caps = {}; }
-  if (caps.focusMode && caps.focusMode.indexOf('continuous') > -1) {
-    track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
-  }
+  var adv = [];
+  if (caps.focusMode && caps.focusMode.indexOf('continuous') > -1) adv.push({ focusMode: 'continuous' });
+  if (CAM.mode === 'scan' && caps.zoom && caps.zoom.max >= 1.5) adv.push({ zoom: Math.min(2, caps.zoom.max) });
+  if (adv.length) track.applyConstraints({ advanced: adv }).catch(function () {});
   if (caps.torch) {
     var on = false;
     tb.classList.remove('hide');
@@ -2873,12 +3017,13 @@ function showScanConfirm(code, format) {
   $('camConfirm').classList.remove('hide');
   $('camHint').textContent = '';
   $('camUse').onclick = function () {
-    if (format) store.set('kap_bc_format', format);   // only read this sticker type from now on
+    // learn the sticker type only from a real HYBB sticker (never from a maker's barcode)
+    if (format && isHybbSticker(code)) store.set('kap_bc_format2', format);
     $('camConfirm').classList.add('hide'); CAM.paused = false; closeCamera(code);
   };
   $('camAgain').onclick = function () {
     $('camConfirm').classList.add('hide');
-    $('camHint').textContent = 'Fit the sticker in the green box – it reads by itself.';
+    $('camHint').textContent = 'Hold the phone a hand’s length away – it reads by itself.';
     $('camVideo').play().catch(function () {});
     CAM.paused = false;
     startScanLoop();
